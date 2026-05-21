@@ -1,32 +1,31 @@
 import Fastify from 'fastify';
+import multipart from '@fastify/multipart';
 import prismaPlugin from './plugins/prisma.js';
 import redisPlugin from './plugins/redis.js';
+import uploadthingPlugin from './plugins/uploadthing.js';
 import athleteRoutes from './routes/athletes/index.js';
+import athleteRegisterRoute from './routes/athletes/register.js';
+import athleteImportRoutes from './routes/athletes/import.js';
 import clubRoutes from './routes/clubs/index.js';
+import './jobs/registration-confirmation.worker.js';
 
 const app = Fastify({
-  logger: {
-    level: process.env['LOG_LEVEL'] ?? 'info',
-  },
+  logger: { level: process.env['LOG_LEVEL'] ?? 'info' },
 });
 
-// Plugins
 await app.register(prismaPlugin);
 await app.register(redisPlugin);
+await app.register(uploadthingPlugin);
+await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10 MB
 
-// Rotas
 await app.register(athleteRoutes, { prefix: '/api/athletes' });
+await app.register(athleteRegisterRoute, { prefix: '/api/athletes' });
+await app.register(athleteImportRoutes, { prefix: '/api/athletes' });
 await app.register(clubRoutes, { prefix: '/api/clubs' });
 
-// Health check
-app.get('/health', async () => {
-  return {
-    data: {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-    },
-  };
-});
+app.get('/health', async () => ({
+  data: { status: 'ok', timestamp: new Date().toISOString() },
+}));
 
 const start = async () => {
   try {
