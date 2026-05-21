@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import prismaPlugin from './plugins/prisma.js';
 import redisPlugin from './plugins/redis.js';
+import athleteRoutes from './routes/athletes/index.js';
+import clubRoutes from './routes/clubs/index.js';
 
 const app = Fastify({
   logger: {
@@ -11,6 +13,10 @@ const app = Fastify({
 // Plugins
 await app.register(prismaPlugin);
 await app.register(redisPlugin);
+
+// Rotas
+await app.register(athleteRoutes, { prefix: '/api/athletes' });
+await app.register(clubRoutes, { prefix: '/api/clubs' });
 
 // Health check
 app.get('/health', async () => {
