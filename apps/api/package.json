@@ -7,17 +7,26 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "lint": "echo lint-api",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "format": "echo format-api"
+    "format": "prettier --write src",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^7.8.0",
+    "bullmq": "^5.0.0",
     "fastify": "^5.0.0",
+    "fastify-plugin": "^5.0.0",
+    "ioredis": "^5.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@atlas-birdie/config": "workspace:*",
     "@types/node": "^24.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.3.3",
     "prisma": "^7.8.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"
