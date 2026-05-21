@@ -3,7 +3,9 @@ import prismaPlugin from './plugins/prisma.js';
 import redisPlugin from './plugins/redis.js';
 import uploadthingPlugin from './plugins/uploadthing.js';
 import athleteRoutes from './routes/athletes/index.js';
+import athleteRegisterRoute from './routes/athletes/register.js';
 import clubRoutes from './routes/clubs/index.js';
+import './jobs/registration-confirmation.worker.js';
 
 const app = Fastify({
   logger: { level: process.env['LOG_LEVEL'] ?? 'info' },
@@ -14,6 +16,7 @@ await app.register(redisPlugin);
 await app.register(uploadthingPlugin);
 
 await app.register(athleteRoutes, { prefix: '/api/athletes' });
+await app.register(athleteRegisterRoute, { prefix: '/api/athletes' });
 await app.register(clubRoutes, { prefix: '/api/clubs' });
 
 app.get('/health', async () => ({
