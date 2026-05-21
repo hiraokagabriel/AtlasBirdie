@@ -1,6 +1,5 @@
 // Atlas Birdie — Prisma Schema
-// Phase 0: schema base com datasource configurado.
-// Modelos de domínio serão adicionados na Phase 1.
+// Phase 1: Tenant, User, Club, Athlete, Pair + modelos de suporte completos
 
 generator client {
   provider = "prisma-client-js"
@@ -10,4 +9,510 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Discipline {
+  MS
+  WS
+  MD
+  WD
+  XD
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  FINISHED
+  WALKOVER
+  RETIRED
+  ABANDONED
+  NO_MATCH
+}
+
+enum InscriptionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  WAITLIST
+}
+
+enum TournamentStatus {
+  DRAFT
+  REGISTRATIONS_OPEN
+  REGISTRATIONS_CLOSED
+  IN_PROGRESS
+  FINISHED
+  ARCHIVED
+}
+
+enum BracketFormat {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  GROUPS_WITH_KNOCKOUT
+  SWISS
+}
+
+enum AthleteStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum ClubStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  FEDERATION_ADMIN
+  TOURNAMENT_ORGANIZER
+  REFEREE
+  CLUB_MANAGER
+  ATHLETE
+  PUBLIC
+}
+
+// ---------------------------------------------------------------------------
+// Tenant
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  logoUrl      String?
+  primaryColor String    @default("#01696f")
+  description  String?
+  website      String?
+  instagram    String?
+  email        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  clubs          Club[]
+  athletes       Athlete[]
+  tournaments    Tournament[]
+  users          User[]
+  rankingConfigs RankingConfig[]
+
+  @@map("tenants")
+}
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+model User {
+  id          String    @id @default(cuid())
+  clerkId     String    @unique
+  email       String    @unique
+  name        String
+  role        UserRole  @default(ATHLETE)
+  tenantId    String
+  athleteId   String?   @unique
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  athlete           Athlete?           @relation(fields: [athleteId], references: [id])
+  pushSubscriptions PushSubscription[]
+
+  @@index([tenantId])
+  @@index([role])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Club
+// ---------------------------------------------------------------------------
+
+model Club {
+  id           String     @id @default(cuid())
+  tenantId     String
+  name         String
+  slug         String     @unique
+  acronym      String
+  logoUrl      String?
+  primaryColor String?
+  city         String?
+  state        String?
+  country      String     @default("BR")
+  status       ClubStatus @default(PENDING)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  athletes Athlete[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("clubs")
+}
+
+// ---------------------------------------------------------------------------
+// Athlete
+// ---------------------------------------------------------------------------
+
+model Athlete {
+  id         String        @id @default(cuid())
+  tenantId   String
+  clubId     String?
+  name       String
+  slug       String        @unique
+  photoUrl   String?
+  birthDate  DateTime?
+  gender     String?
+  handedness String?
+  city       String?
+  state      String?
+  country    String        @default("BR")
+  status     AthleteStatus @default(PENDING)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deletedAt  DateTime?
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  club           Club?          @relation(fields: [clubId], references: [id])
+  user           User?
+  pairsAsA       Pair[]         @relation("PairAthleteA")
+  pairsAsB       Pair[]         @relation("PairAthleteB")
+  inscriptions   Inscription[]
+  rankingEntries RankingEntry[]
+
+  @@index([tenantId])
+  @@index([clubId])
+  @@index([status])
+  @@map("athletes")
+}
+
+// ---------------------------------------------------------------------------
+// Pair
+// ---------------------------------------------------------------------------
+
+model Pair {
+  id         String     @id @default(cuid())
+  discipline Discipline
+  athleteAId String
+  athleteBId String
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  deletedAt  DateTime?
+
+  athleteA       Athlete        @relation("PairAthleteA", fields: [athleteAId], references: [id])
+  athleteB       Athlete        @relation("PairAthleteB", fields: [athleteBId], references: [id])
+  inscriptions   Inscription[]
+  rankingEntries RankingEntry[]
+
+  @@unique([discipline, athleteAId, athleteBId])
+  @@index([athleteAId])
+  @@index([athleteBId])
+  @@map("pairs")
+}
+
+// ---------------------------------------------------------------------------
+// Tournament
+// ---------------------------------------------------------------------------
+
+model Tournament {
+  id            String           @id @default(cuid())
+  tenantId      String
+  name          String
+  slug          String           @unique
+  logoUrl       String?
+  location      String?
+  city          String?
+  state         String?
+  startDate     DateTime
+  endDate       DateTime
+  status        TournamentStatus @default(DRAFT)
+  regulationUrl String?
+  description   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+
+  tenant Tenant            @relation(fields: [tenantId], references: [id])
+  events TournamentEvent[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([startDate])
+  @@map("tournaments")
+}
+
+// ---------------------------------------------------------------------------
+// TournamentEvent
+// ---------------------------------------------------------------------------
+
+model TournamentEvent {
+  id              String           @id @default(cuid())
+  tournamentId    String
+  discipline      Discipline
+  category        String
+  bracketFormat   BracketFormat    @default(SINGLE_ELIMINATION)
+  maxInscriptions Int?
+  status          TournamentStatus @default(DRAFT)
+  seedingClosedAt DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  tournament   Tournament    @relation(fields: [tournamentId], references: [id])
+  inscriptions Inscription[]
+  bracket      Bracket?
+
+  @@unique([tournamentId, discipline, category])
+  @@index([tournamentId])
+  @@map("tournament_events")
+}
+
+// ---------------------------------------------------------------------------
+// Inscription
+// ---------------------------------------------------------------------------
+
+model Inscription {
+  id          String            @id @default(cuid())
+  eventId     String
+  athleteId   String?
+  pairId      String?
+  status      InscriptionStatus @default(PENDING)
+  seed        Int?
+  checkedIn   Boolean           @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  event   TournamentEvent @relation(fields: [eventId], references: [id])
+  athlete Athlete?        @relation(fields: [athleteId], references: [id])
+  pair    Pair?           @relation(fields: [pairId], references: [id])
+
+  @@index([eventId])
+  @@index([athleteId])
+  @@index([pairId])
+  @@index([status])
+  @@map("inscriptions")
+}
+
+// ---------------------------------------------------------------------------
+// Bracket
+// ---------------------------------------------------------------------------
+
+model Bracket {
+  id          String    @id @default(cuid())
+  eventId     String    @unique
+  rounds      Int
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  event   TournamentEvent @relation(fields: [eventId], references: [id])
+  matches Match[]
+
+  @@map("brackets")
+}
+
+// ---------------------------------------------------------------------------
+// Match
+// ---------------------------------------------------------------------------
+
+model Match {
+  id            String      @id @default(cuid())
+  bracketId     String
+  round         Int
+  position      Int
+  court         String?
+  scheduledAt   DateTime?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  status        MatchStatus @default(SCHEDULED)
+  refereeId     String?
+  playerAId     String?
+  playerBId     String?
+  playerAType   String?
+  playerBType   String?
+  winnerId      String?
+  winnerType    String?
+  nextMatchId   String?
+  nextMatchSlot String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  bracket   Bracket          @relation(fields: [bracketId], references: [id])
+  games     Game[]
+  stats     MatchStat[]
+  auditLogs ResultAuditLog[]
+
+  @@index([bracketId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("matches")
+}
+
+// ---------------------------------------------------------------------------
+// Game
+// ---------------------------------------------------------------------------
+
+model Game {
+  id         String    @id @default(cuid())
+  matchId    String
+  gameNumber Int
+  scoreA     Int       @default(0)
+  scoreB     Int       @default(0)
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@index([matchId])
+  @@map("games")
+}
+
+// ---------------------------------------------------------------------------
+// MatchStat
+// ---------------------------------------------------------------------------
+
+model MatchStat {
+  id         String   @id @default(cuid())
+  matchId    String
+  athleteAId String?
+  athleteBId String?
+  gamesWon   Int      @default(0)
+  gamesLost  Int      @default(0)
+  pointsWon  Int      @default(0)
+  pointsLost Int      @default(0)
+  isWinner   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@index([matchId])
+  @@map("match_stats")
+}
+
+// ---------------------------------------------------------------------------
+// ResultAuditLog
+// ---------------------------------------------------------------------------
+
+model ResultAuditLog {
+  id        String   @id @default(cuid())
+  matchId   String
+  changedBy String
+  oldResult Json
+  newResult Json
+  reason    String
+  createdAt DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+
+  @@index([matchId])
+  @@map("result_audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// RankingConfig
+// ---------------------------------------------------------------------------
+
+model RankingConfig {
+  id                  String     @id @default(cuid())
+  tenantId            String
+  season              Int
+  discipline          Discipline
+  windowWeeks         Int        @default(52)
+  maxTournamentsCount Int        @default(10)
+  isActive            Boolean    @default(true)
+  validFrom           DateTime
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  pointRules     PointRule[]
+  rankingEntries RankingEntry[]
+
+  @@unique([tenantId, discipline, season])
+  @@index([tenantId])
+  @@map("ranking_configs")
+}
+
+// ---------------------------------------------------------------------------
+// PointRule
+// ---------------------------------------------------------------------------
+
+model PointRule {
+  id              String   @id @default(cuid())
+  rankingConfigId String
+  tournamentLevel String
+  phase           String
+  points          Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rankingConfig RankingConfig @relation(fields: [rankingConfigId], references: [id])
+
+  @@unique([rankingConfigId, tournamentLevel, phase])
+  @@index([rankingConfigId])
+  @@map("point_rules")
+}
+
+// ---------------------------------------------------------------------------
+// RankingEntry
+// ---------------------------------------------------------------------------
+
+model RankingEntry {
+  id               String   @id @default(cuid())
+  rankingConfigId  String
+  athleteId        String?
+  pairId           String?
+  position         Int
+  previousPosition Int?
+  points           Int
+  tournamentsCount Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  rankingConfig RankingConfig @relation(fields: [rankingConfigId], references: [id])
+  athlete       Athlete?      @relation(fields: [athleteId], references: [id])
+  pair          Pair?         @relation(fields: [pairId], references: [id])
+
+  @@index([rankingConfigId])
+  @@index([athleteId])
+  @@index([pairId])
+  @@index([position])
+  @@map("ranking_entries")
+}
+
+// ---------------------------------------------------------------------------
+// PushSubscription
+// ---------------------------------------------------------------------------
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
