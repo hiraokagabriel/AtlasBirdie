@@ -1,9 +1,5 @@
-// Atlas Birdie — Tipos compartilhados
-// Usados tanto pelo frontend (apps/web) quanto pelo backend (apps/api)
-
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
+// Atlas Birdie — Shared Types
+// Importado por apps/web e apps/api
 
 export type Discipline = 'MS' | 'WS' | 'MD' | 'WD' | 'XD';
 
@@ -47,25 +43,28 @@ export type MatchStatus =
 export type InscriptionStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'WAITLIST';
 
 // ---------------------------------------------------------------------------
-// Entidades
+// Base
 // ---------------------------------------------------------------------------
 
-export interface Tenant {
+export interface BaseEntity {
   id: string;
-  name: string;
-  slug: string;
-  logoUrl: string | null;
-  primaryColor: string;
-  description: string | null;
-  website: string | null;
-  instagram: string | null;
-  email: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Club {
+// ---------------------------------------------------------------------------
+// Club
+// ---------------------------------------------------------------------------
+
+export interface ClubSummary {
   id: string;
+  name: string;
+  slug: string;
+  acronym: string;
+  logoUrl: string | null;
+}
+
+export interface Club extends BaseEntity {
   tenantId: string;
   name: string;
   slug: string;
@@ -76,12 +75,21 @@ export interface Club {
   state: string | null;
   country: string;
   status: ClubStatus;
-  createdAt: string;
-  updatedAt: string;
 }
 
-export interface Athlete {
+// ---------------------------------------------------------------------------
+// Athlete
+// ---------------------------------------------------------------------------
+
+export interface AthleteSummary {
   id: string;
+  name: string;
+  slug: string;
+  photoUrl: string | null;
+  club: ClubSummary | null;
+}
+
+export interface Athlete extends BaseEntity {
   tenantId: string;
   clubId: string | null;
   name: string;
@@ -94,79 +102,60 @@ export interface Athlete {
   state: string | null;
   country: string;
   status: AthleteStatus;
-  createdAt: string;
-  updatedAt: string;
-  // Relações opcionais (populated)
-  club?: Pick<Club, 'id' | 'name' | 'slug' | 'acronym' | 'logoUrl'>;
+  club: ClubSummary | null;
 }
 
-export interface AthleteWithClub extends Athlete {
-  club: Pick<Club, 'id' | 'name' | 'slug' | 'acronym' | 'logoUrl'> | null;
-}
+// ---------------------------------------------------------------------------
+// Pair
+// ---------------------------------------------------------------------------
 
-export interface Pair {
-  id: string;
+export interface Pair extends BaseEntity {
   discipline: Discipline;
   athleteAId: string;
   athleteBId: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  athleteA?: Pick<Athlete, 'id' | 'name' | 'slug' | 'photoUrl'>;
-  athleteB?: Pick<Athlete, 'id' | 'name' | 'slug' | 'photoUrl'>;
+  athleteA: AthleteSummary;
+  athleteB: AthleteSummary;
 }
 
-export interface User {
+// ---------------------------------------------------------------------------
+// Ranking
+// ---------------------------------------------------------------------------
+
+export interface RankingEntry {
   id: string;
-  clerkId: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  tenantId: string;
-  athleteId: string | null;
-  isActive: boolean;
-  lastLoginAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  position: number;
+  previousPosition: number | null;
+  points: number;
+  tournamentsCount: number;
+  rankingConfig: {
+    discipline: Discipline;
+    season: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Respostas paginadas
+// API response wrappers
 // ---------------------------------------------------------------------------
 
-export interface PaginationMeta {
+export interface ApiMeta {
   total: number;
   page: number;
   perPage: number;
   totalPages: number;
 }
 
-export interface PaginatedResponse<T> {
+export interface ApiListResponse<T> {
   data: T[];
-  meta: PaginationMeta;
+  meta: ApiMeta;
 }
 
-export interface SingleResponse<T> {
+export interface ApiItemResponse<T> {
   data: T;
 }
 
-// ---------------------------------------------------------------------------
-// Filtros e queries
-// ---------------------------------------------------------------------------
-
-export interface AthleteFilters {
-  search?: string;
-  clubId?: string;
-  status?: AthleteStatus;
-  discipline?: Discipline;
-  page?: number;
-  perPage?: number;
-}
-
-export interface ClubFilters {
-  search?: string;
-  status?: ClubStatus;
-  state?: string;
-  page?: number;
-  perPage?: number;
+export interface ApiError {
+  error: string;
+  code: string;
+  details?: unknown;
 }
