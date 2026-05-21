@@ -1,0 +1,56 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# turborepo / build
+.turbo/
+dist/
+build/
+coverage/
+.tmp/
+temp/
+
+# next.js
+.next/
+out/
+
+# local IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# typescript
+*.tsbuildinfo
+
+# prisma generated client
+apps/api/src/generated/prisma/
+
+# uploads / local storage
+uploads/
+storage/
+
+# test artifacts
+playwright-report/
+test-results/
+
+# local databases / dumps
+*.sqlite
+*.db
+*.sql
+
+# misc
+.vercel/
