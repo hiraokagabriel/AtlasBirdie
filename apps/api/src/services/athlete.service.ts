@@ -14,6 +14,7 @@ export interface CreateAthleteInput {
   clubId?: string;
   name: string;
   slug: string;
+  document?: string;
   photoUrl?: string;
   birthDate?: Date;
   gender?: string;
@@ -26,6 +27,7 @@ export interface CreateAthleteInput {
 export interface UpdateAthleteInput {
   clubId?: string | null;
   name?: string;
+  document?: string | null;
   photoUrl?: string | null;
   birthDate?: Date | null;
   gender?: string | null;
@@ -82,7 +84,7 @@ export function createAthleteService(prisma: PrismaClient) {
     },
 
     async getBySlug(slug: string) {
-      const athlete = await prisma.athlete.findFirst({
+      return prisma.athlete.findFirst({
         where: { slug, deletedAt: null },
         include: {
           club: {
@@ -99,27 +101,27 @@ export function createAthleteService(prisma: PrismaClient) {
           },
         },
       });
-
-      return athlete;
     },
 
     async create(input: CreateAthleteInput) {
-      return prisma.athlete.create({
-        data: input,
-      });
+      return prisma.athlete.create({ data: input });
     },
 
     async update(id: string, input: UpdateAthleteInput) {
-      return prisma.athlete.update({
-        where: { id },
-        data: input,
-      });
+      return prisma.athlete.update({ where: { id }, data: input });
     },
 
     async softDelete(id: string) {
       return prisma.athlete.update({
         where: { id },
         data: { deletedAt: new Date() },
+      });
+    },
+
+    async findByDocument(tenantId: string, document: string) {
+      return prisma.athlete.findFirst({
+        where: { tenantId, document, deletedAt: null },
+        select: { id: true, name: true, slug: true },
       });
     },
   };
