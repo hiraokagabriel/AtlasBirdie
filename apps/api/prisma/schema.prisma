@@ -172,6 +172,8 @@ model Athlete {
   clubId     String?
   name       String
   slug       String        @unique
+  /// CPF ou documento nacional do atleta (opcional, único por tenant)
+  document   String?
   photoUrl   String?
   birthDate  DateTime?
   gender     String?
@@ -192,6 +194,7 @@ model Athlete {
   inscriptions   Inscription[]
   rankingEntries RankingEntry[]
 
+  @@unique([tenantId, document])
   @@index([tenantId])
   @@index([clubId])
   @@index([status])
