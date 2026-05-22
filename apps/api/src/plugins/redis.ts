@@ -1,25 +1,26 @@
-import fp from 'fastify-plugin';
-import Redis from 'ioredis';
-import type { FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin'
+import type { FastifyPluginAsync } from 'fastify'
+import Redis from 'ioredis'
 
 declare module 'fastify' {
   interface FastifyInstance {
-    redis: Redis;
+    redis: Redis
   }
 }
 
-const redisPlugin: FastifyPluginAsync = async (app) => {
-  const redis = new Redis(process.env['REDIS_URL'] ?? 'redis://localhost:6379', {
-    maxRetriesPerRequest: null,
-  });
+const redisPlugin: FastifyPluginAsync = fp(async (fastify) => {
+  const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+    maxRetriesPerRequest: 3,
+    lazyConnect: true,
+  })
 
-  redis.on('error', (err) => app.log.error({ err }, 'Redis connection error'));
+  await redis.connect()
 
-  app.decorate('redis', redis);
+  fastify.decorate('redis', redis)
 
-  app.addHook('onClose', async () => {
-    await redis.quit();
-  });
-};
+  fastify.addHook('onClose', async () => {
+    await redis.quit()
+  })
+})
 
-export default fp(redisPlugin, { name: 'redis' });
+export default redisPlugin

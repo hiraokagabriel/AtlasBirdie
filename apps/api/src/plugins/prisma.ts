@@ -1,30 +1,25 @@
-import fp from 'fastify-plugin';
-import { PrismaClient } from '../generated/prisma/index.js';
-import { PrismaPg } from '@prisma/adapter-pg';
-import type { FastifyPluginAsync } from 'fastify';
+import fp from 'fastify-plugin'
+import type { FastifyPluginAsync } from 'fastify'
+import { PrismaClient } from '../generated/prisma'
 
 declare module 'fastify' {
   interface FastifyInstance {
-    prisma: PrismaClient;
+    prisma: PrismaClient
   }
 }
 
-const prismaPlugin: FastifyPluginAsync = async (app) => {
-  const adapter = new PrismaPg({
-    connectionString: process.env['DATABASE_URL'],
-  });
-
+const prismaPlugin: FastifyPluginAsync = fp(async (fastify) => {
   const prisma = new PrismaClient({
-    adapter,
-    log: app.log.level === 'debug' ? ['query', 'info', 'warn', 'error'] : ['warn', 'error'],
-  });
+    log: process.env.NODE_ENV === 'development' ? ['query', 'warn', 'error'] : ['warn', 'error'],
+  })
 
-  await prisma.$connect();
-  app.decorate('prisma', prisma);
+  await prisma.$connect()
 
-  app.addHook('onClose', async () => {
-    await prisma.$disconnect();
-  });
-};
+  fastify.decorate('prisma', prisma)
 
-export default fp(prismaPlugin, { name: 'prisma' });
+  fastify.addHook('onClose', async () => {
+    await prisma.$disconnect()
+  })
+})
+
+export default prismaPlugin
