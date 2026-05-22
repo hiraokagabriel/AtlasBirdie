@@ -1,5 +1,5 @@
 // Atlas Birdie — Prisma Schema
-// Phase 1: Tenant, User, Club, Athlete, Pair + modelos de suporte completos
+// Phase 1: Tenant, User, Club, Athlete, Pair + Category + modelos de suporte completos
 
 generator client {
   provider = "prisma-client-js"
@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +103,7 @@ model Tenant {
   tournaments    Tournament[]
   users          User[]
   rankingConfigs RankingConfig[]
+  categories     Category[]
 
   @@map("tenants")
 }
@@ -159,6 +161,33 @@ model Club {
   @@index([tenantId])
   @@index([status])
   @@map("clubs")
+}
+
+// ---------------------------------------------------------------------------
+// Category
+// ---------------------------------------------------------------------------
+
+model Category {
+  id               String     @id @default(cuid())
+  tenantId         String
+  name             String
+  /// disciplines this category applies to (e.g. ["MS","MD","XD"])
+  disciplines      String[]
+  /// allowed genders: "M", "F", "ANY"
+  allowedGender    String     @default("ANY")
+  minAge           Int?
+  maxAge           Int?
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("categories")
 }
 
 // ---------------------------------------------------------------------------
