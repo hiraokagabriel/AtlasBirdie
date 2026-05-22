@@ -5,19 +5,14 @@ import dynamic from 'next/dynamic'
 import { type ReactNode } from 'react'
 import { getQueryClient } from '../lib/query-client'
 
-// next/dynamic with ssr:false prevents Webpack from attempting to resolve
-// @tanstack/react-query-devtools at build time. The module is only ever
-// requested in the browser and only when NODE_ENV === 'development'.
-const ReactQueryDevtools =
-  process.env.NODE_ENV === 'development'
-    ? dynamic(
-        () =>
-          import('@tanstack/react-query-devtools').then((mod) => ({
-            default: mod.ReactQueryDevtools,
-          })),
-        { ssr: false }
-      )
-    : () => null
+// Devtools are loaded from a separate file that only imports
+// @tanstack/react-query-devtools. next/dynamic with ssr:false ensures
+// Webpack never attempts to bundle this module in the server build.
+// In production the chunk is never requested (NODE_ENV guard inside the file).
+const QueryDevtools = dynamic(
+  () => import('./devtools').then((mod) => ({ default: mod.QueryDevtools })),
+  { ssr: false }
+)
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const queryClient = getQueryClient()
@@ -25,7 +20,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <ReactQueryDevtools initialIsOpen={false} />
+      <QueryDevtools />
     </QueryClientProvider>
   )
 }
