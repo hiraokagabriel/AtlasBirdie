@@ -22,6 +22,7 @@ import { slugify } from '@/lib/utils'
 export function Step1General() {
   const { state, dispatch } = useWizard()
   const { getToken } = useAuth()
+  const createMutation = useCreateTournament()
 
   const form = useForm<CreateTournamentInput>({
     resolver: zodResolver(createTournamentSchema),
@@ -37,9 +38,6 @@ export function Step1General() {
     },
   })
 
-  // ✅ Hook declarado no escopo do componente (Rules of Hooks)
-  const createMutation = useCreateTournament()
-
   const onSubmit = async (data: CreateTournamentInput) => {
     dispatch({ type: 'SET_ERROR', error: null })
     dispatch({ type: 'SET_SAVING', value: true })
@@ -49,8 +47,8 @@ export function Step1General() {
       if (!token) throw new Error('Não autenticado')
 
       if (!state.createdTournamentId) {
-        // ✅ Token passado via contexto do mutateAsync, não como arg do hook
-        const result = await createMutation.mutateAsync({ data, token })
+        // token é obtido fresco aqui — nunca stale
+        const result = await createMutation.mutateAsync({ ...data, token })
         dispatch({
           type: 'SET_CREATED',
           id: result.data.id,
@@ -84,7 +82,6 @@ export function Step1General() {
                     {...field}
                     onChange={(e) => {
                       field.onChange(e)
-                      // Auto-slug apenas enquanto o usuário não editou manualmente
                       if (!state.draft.step1?.slug) {
                         form.setValue('slug', slugify(e.target.value))
                       }

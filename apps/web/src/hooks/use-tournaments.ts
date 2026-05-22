@@ -73,7 +73,14 @@ export const tournamentKeys = {
 }
 
 // ---------------------------------------------------------------------------
-// Hooks
+// Payload types — token always lives inside the mutation payload so Clerk
+// tokens that rotate between renders are never stale-captured in a closure.
+// ---------------------------------------------------------------------------
+
+type WithToken<T> = T & { token: string }
+
+// ---------------------------------------------------------------------------
+// Query hooks
 // ---------------------------------------------------------------------------
 
 interface UseTournamentsParams {
@@ -83,7 +90,12 @@ interface UseTournamentsParams {
   status?: string
 }
 
-export function useTournaments({ search = '', page = 1, perPage = 20, status }: UseTournamentsParams = {}) {
+export function useTournaments({
+  search = '',
+  page = 1,
+  perPage = 20,
+  status,
+}: UseTournamentsParams = {}) {
   return useQuery<TournamentsResponse>({
     queryKey: tournamentKeys.list({ search, page, perPage, status }),
     queryFn: async () => {
@@ -92,8 +104,7 @@ export function useTournaments({ search = '', page = 1, perPage = 20, status }: 
       params.set('perPage', String(perPage))
       if (search.trim()) params.set('search', search.trim())
       if (status) params.set('status', status)
-      const res = await api.get<TournamentsResponse>(`/api/tournaments?${params.toString()}`)
-      return res
+      return api.get<TournamentsResponse>(`/api/tournaments?${params.toString()}`)
     },
     staleTime: 1000 * 30,
     placeholderData: keepPreviousData,
@@ -109,37 +120,41 @@ export function useTournament(slug: string) {
   })
 }
 
-export function useCreateTournament(token: string) {
+// ---------------------------------------------------------------------------
+// Mutation hooks
+// ---------------------------------------------------------------------------
+
+export function useCreateTournament() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: CreateTournamentInput) =>
+    mutationFn: ({ token, ...input }: WithToken<CreateTournamentInput>) =>
       api.post<SingleResponse<TournamentDetail>>('/api/tournaments', input, { token }),
     onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
   })
 }
 
-export function useUpdateTournament(id: string, token: string) {
+export function useUpdateTournament(id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: UpdateTournamentInput) =>
+    mutationFn: ({ token, ...input }: WithToken<UpdateTournamentInput>) =>
       api.patch<SingleResponse<TournamentDetail>>(`/api/tournaments/${id}`, input, { token }),
     onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
   })
 }
 
-export function useDeleteTournament(token: string) {
+export function useDeleteTournament() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) =>
+    mutationFn: ({ token, id }: { token: string; id: string }) =>
       api.delete<void>(`/api/tournaments/${id}`, { token }),
     onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
   })
 }
 
-export function useCreateEvent(tournamentId: string, token: string) {
+export function useCreateEvent(tournamentId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: CreateEventInput) =>
+    mutationFn: ({ token, ...input }: WithToken<CreateEventInput>) =>
       api.post<SingleResponse<TournamentEventItem>>(
         `/api/tournaments/${tournamentId}/events`,
         input,
@@ -149,10 +164,10 @@ export function useCreateEvent(tournamentId: string, token: string) {
   })
 }
 
-export function useDeleteEvent(tournamentId: string, token: string) {
+export function useDeleteEvent(tournamentId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (eventId: string) =>
+    mutationFn: ({ token, eventId }: { token: string; eventId: string }) =>
       api.delete<void>(`/api/tournaments/${tournamentId}/events/${eventId}`, { token }),
     onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
   })
