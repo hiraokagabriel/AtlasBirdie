@@ -55,25 +55,31 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Cards */}
+        {/* Feature cards */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
           <div className="grid sm:grid-cols-3 gap-6">
             {[
               {
                 href: '/tournaments',
-                icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 21h8M12 17v4M7 4H3v4a4 4 0 0 0 8 0V4M17 4h4v4a4 4 0 0 1-8 0V4"/></svg>),
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 21h8M12 17v4M7 4H3v4a4 4 0 0 0 8 0V4M17 4h4v4a4 4 0 0 1-8 0V4"/></svg>
+                ),
                 title: 'Torneios',
                 description: 'Calendário de competições, inscrições abertas e resultados por categoria e disciplina.',
               },
               {
                 href: '/rankings',
-                icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 18h4v-6H3v6zM10 18h4V6h-4v12zM17 18h4v-9h-4v9z"/></svg>),
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 18h4v-6H3v6zM10 18h4V6h-4v12zM17 18h4v-9h-4v9z"/></svg>
+                ),
                 title: 'Rankings',
                 description: 'Classificação nacional por modalidade, categoria etária e pontuação acumulada na temporada.',
               },
               {
                 href: '/athletes',
-                icon: (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>),
+                icon: (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                ),
                 title: 'Atletas',
                 description: 'Perfis públicos, histórico de resultados, evolução de ranking e estatísticas individuais.',
               },
@@ -100,6 +106,7 @@ export default function HomePage() {
         </section>
       </main>
 
+      {/* Footer */}
       <footer className="border-t border-zinc-100 dark:border-zinc-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400 dark:text-zinc-600">
           <span>© 2026 Atlas Birdie. Plataforma de gestão de badminton.</span>
