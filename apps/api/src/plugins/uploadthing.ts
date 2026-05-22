@@ -1,6 +1,6 @@
 import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
-import { createUploadthing } from 'uploadthing/fastify';
+import { createUploadthing, createRouteHandler } from 'uploadthing/fastify';
 import type { FileRouter } from 'uploadthing/fastify';
 
 const f = createUploadthing();
@@ -20,9 +20,12 @@ export const uploadRouter = {
 export type OurFileRouter = typeof uploadRouter;
 
 export default fp(async function uploadthingPlugin(app: FastifyInstance) {
-  // Registra a rota /api/uploadthing para o client do frontend
-  const { createRouteHandler } = await import('uploadthing/fastify');
-  const handler = createRouteHandler({ router: uploadRouter });
+  const handler = createRouteHandler({
+    router: uploadRouter,
+    config: {
+      token: process.env['UPLOADTHING_TOKEN'],
+    },
+  });
 
   app.all('/api/uploadthing', async (request, reply) => {
     return handler(request, reply);
