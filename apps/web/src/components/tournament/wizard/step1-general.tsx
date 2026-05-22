@@ -37,7 +37,8 @@ export function Step1General() {
     },
   })
 
-  const createMutation = useCreateTournament('')
+  // ✅ Hook declarado no escopo do componente (Rules of Hooks)
+  const createMutation = useCreateTournament()
 
   const onSubmit = async (data: CreateTournamentInput) => {
     dispatch({ type: 'SET_ERROR', error: null })
@@ -47,9 +48,9 @@ export function Step1General() {
       const token = await getToken()
       if (!token) throw new Error('Não autenticado')
 
-      // Persiste no servidor — só cria se ainda não existe
       if (!state.createdTournamentId) {
-        const result = await useCreateTournament(token).mutateAsync(data)
+        // ✅ Token passado via contexto do mutateAsync, não como arg do hook
+        const result = await createMutation.mutateAsync({ data, token })
         dispatch({
           type: 'SET_CREATED',
           id: result.data.id,
@@ -60,15 +61,12 @@ export function Step1General() {
       dispatch({ type: 'SAVE_DRAFT', step: 'step1', data })
       dispatch({ type: 'NEXT_STEP' })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido'
+      const message = err instanceof Error ? err.message : 'Erro ao criar torneio'
       dispatch({ type: 'SET_ERROR', error: message })
     } finally {
       dispatch({ type: 'SET_SAVING', value: false })
     }
   }
-
-  // Auto-slug a partir do nome
-  const nameValue = form.watch('name')
 
   return (
     <Form {...form}>
@@ -86,6 +84,7 @@ export function Step1General() {
                     {...field}
                     onChange={(e) => {
                       field.onChange(e)
+                      // Auto-slug apenas enquanto o usuário não editou manualmente
                       if (!state.draft.step1?.slug) {
                         form.setValue('slug', slugify(e.target.value))
                       }
@@ -217,7 +216,7 @@ export function Step1General() {
 
         <div className="flex justify-end">
           <Button type="submit" disabled={state.isSaving}>
-            {state.isSaving ? 'Salvando...' : 'Próximo'} →
+            {state.isSaving ? 'Salvando...' : 'Próximo →'}
           </Button>
         </div>
       </form>
