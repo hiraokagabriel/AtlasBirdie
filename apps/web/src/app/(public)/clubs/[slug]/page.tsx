@@ -1,65 +1,93 @@
-import { notFound } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
+import { api } from '@/lib/api'
+import type { SingleResponse, ClubWithAthleteCount, PaginatedResponse, AthleteWithClub } from '@atlas/types'
+import Image from 'next/image'
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
 
-interface PageProps {
-  params: Promise<{ slug: string }>;
-}
+export const revalidate = 300
 
-async function getClub(slug: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs/${slug}`, {
-    next: { revalidate: 60 },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error('Failed to fetch club');
-  const json = await res.json();
-  return json.data;
-}
+export default async function ClubProfilePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
 
-export default async function ClubPublicPage({ params }: PageProps) {
-  const { slug } = await params;
-  const club = await getClub(slug);
+  const [clubResult, athletesResult] = await Promise.all([
+    api
+      .get<SingleResponse<ClubWithAthleteCount>>(`/api/clubs/${slug}`, { revalidate: 300 })
+      .catch(() => null),
+    api
+      .get<PaginatedResponse<AthleteWithClub>>(`/api/athletes?clubId=${slug}&perPage=50`, {
+        revalidate: 300,
+      })
+      .catch(() => null),
+  ])
 
-  if (!club) notFound();
+  if (!clubResult) notFound()
+
+  const { data: club } = clubResult
+  const athletes = athletesResult?.data ?? []
 
   return (
-    <main className="container mx-auto max-w-4xl py-12 px-4">
-      <div className="flex items-center gap-6 mb-10">
-        {club.logoUrl ? (
-          <Image
-            src={club.logoUrl}
-            alt={club.name}
-            width={80}
-            height={80}
-            className="rounded-lg object-contain"
-          />
-        ) : (
-          <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center font-bold text-xl">
-            {club.acronym}
-          </div>
-        )}
+    <main className="container mx-auto px-4 py-8 max-w-3xl">
+      <div className="flex items-center gap-6 mb-8">
+        <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+          {club.logoUrl ? (
+            <Image
+              src={club.logoUrl}
+              alt={club.name}
+              fill
+              className="object-contain p-2"
+              sizes="80px"
+              priority
+            />
+          ) : (
+            <span className="flex items-center justify-center w-full h-full text-2xl font-bold text-muted-foreground">
+              {club.acronym}
+            </span>
+          )}
+        </div>
         <div>
           <h1 className="text-2xl font-semibold">{club.name}</h1>
-          <p className="text-muted-foreground">
-            {[club.city, club.state].filter(Boolean).join(', ')}
+          <p className="text-sm text-muted-foreground">
+            {club.acronym}
+            {club.city ? ` · ${club.city}` : ''}
+            {club.state ? `/${club.state}` : ''}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {club._count.athletes} atleta{club._count.athletes !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
 
-      {club.athletes?.length > 0 && (
+      {athletes.length > 0 && (
         <section>
-          <h2 className="text-lg font-medium mb-4">Atletas</h2>
+          <h2 className="text-lg font-semibold mb-4">Atletas</h2>
           <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {club.athletes.map((a: { id: string; slug: string; name: string; photoUrl: string | null }) => (
-              <li key={a.id}>
+            {athletes.map((athlete) => (
+              <li key={athlete.id}>
                 <Link
-                  href={`/athletes/${a.slug}`}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors"
+                  href={`/athletes/${athlete.slug}`}
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent transition-colors"
                 >
-                  <div className="h-8 w-8 rounded-full bg-muted-foreground/20 flex items-center justify-center text-xs font-medium shrink-0">
-                    {a.name[0]}
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                    {athlete.photoUrl ? (
+                      <Image
+                        src={athlete.photoUrl}
+                        alt={athlete.name}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="flex items-center justify-center w-full h-full text-sm font-bold text-muted-foreground">
+                        {athlete.name[0]}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-sm truncate">{a.name}</span>
+                  <span className="text-sm font-medium leading-tight">{athlete.name}</span>
                 </Link>
               </li>
             ))}
@@ -67,5 +95,5 @@ export default async function ClubPublicPage({ params }: PageProps) {
         </section>
       )}
     </main>
-  );
+  )
 }
