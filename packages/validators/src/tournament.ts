@@ -4,27 +4,30 @@ import { z } from 'zod'
 // Step 1 — General info
 // ---------------------------------------------------------------------------
 
-export const createTournamentSchema = z
-  .object({
-    name: z.string().min(2).max(200),
-    slug: z
-      .string()
-      .min(2)
-      .max(100)
-      .regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens'),
-    logoUrl: z.string().url().optional(),
-    location: z.string().max(200).optional(),
-    city: z.string().max(100).optional(),
-    state: z.string().max(50).optional(),
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime(),
-    regulationUrl: z.string().url().optional(),
-    regulationText: z.string().max(50_000).optional(),
-    description: z.string().max(2000).optional(),
-    registrationOpenAt: z.string().datetime().optional(),
-    registrationCloseAt: z.string().datetime().optional(),
-    maxInscriptionsGlobal: z.number().int().positive().optional(),
-  })
+// Base object (ZodObject) — required for .partial() / .extend() to work.
+// .refine() wraps the schema in ZodEffects, which loses those methods.
+const createTournamentBaseSchema = z.object({
+  name: z.string().min(2).max(200),
+  slug: z
+    .string()
+    .min(2)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens'),
+  logoUrl: z.string().url().optional(),
+  location: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(50).optional(),
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  regulationUrl: z.string().url().optional(),
+  regulationText: z.string().max(50_000).optional(),
+  description: z.string().max(2000).optional(),
+  registrationOpenAt: z.string().datetime().optional(),
+  registrationCloseAt: z.string().datetime().optional(),
+  maxInscriptionsGlobal: z.number().int().positive().optional(),
+})
+
+export const createTournamentSchema = createTournamentBaseSchema
   .refine((d) => new Date(d.endDate) >= new Date(d.startDate), {
     message: 'Data de término deve ser maior ou igual à data de início',
     path: ['endDate'],
@@ -40,7 +43,9 @@ export const createTournamentSchema = z
     },
   )
 
-export const updateTournamentSchema = createTournamentSchema
+// .partial() and .extend() operate on the base ZodObject, then refinements
+// are re-applied so the same business rules hold on partial updates.
+export const updateTournamentSchema = createTournamentBaseSchema
   .partial()
   .extend({
     status: z
@@ -54,6 +59,23 @@ export const updateTournamentSchema = createTournamentSchema
       ])
       .optional(),
   })
+  .refine(
+    (d) => !d.startDate || !d.endDate || new Date(d.endDate) >= new Date(d.startDate),
+    {
+      message: 'Data de término deve ser maior ou igual à data de início',
+      path: ['endDate'],
+    },
+  )
+  .refine(
+    (d) =>
+      !d.registrationOpenAt ||
+      !d.registrationCloseAt ||
+      new Date(d.registrationCloseAt) >= new Date(d.registrationOpenAt),
+    {
+      message: 'Data de encerramento das inscrições deve ser após a abertura',
+      path: ['registrationCloseAt'],
+    },
+  )
 
 export type CreateTournamentInput = z.infer<typeof createTournamentSchema>
 export type UpdateTournamentInput = z.infer<typeof updateTournamentSchema>
@@ -85,9 +107,11 @@ export const createEventSchema = z.object({
   bracketFormat: z.enum(bracketFormatValues).default('SINGLE_ELIMINATION'),
   maxInscriptions: z.number().int().positive().optional(),
   seedCount: z.number().int().min(0).max(32).default(4),
-  bestOf: z.number().int().refine((n) => [1, 3, 5].includes(n), {
-    message: 'bestOf deve ser 1, 3 ou 5',
-  }).default(3),
+  bestOf: z
+    .number()
+    .int()
+    .refine((n) => [1, 3, 5].includes(n), { message: 'bestOf deve ser 1, 3 ou 5' })
+    .default(3),
   pointsPerGame: z.number().int().min(11).max(30).default(21),
   groupCount: z.number().int().positive().optional(),
   playersPerGroup: z.number().int().positive().optional(),
@@ -112,12 +136,8 @@ export const createCourtSchema = z.object({
   name: z.string().min(1).max(100),
   type: z.enum(['MAIN', 'SECONDARY']).default('SECONDARY'),
   isShowCourt: z.boolean().default(false),
-  openTime: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Formato HH:MM'),
-  closeTime: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Formato HH:MM'),
+  openTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Formato HH:MM'),
+  closeTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Formato HH:MM'),
   minIntervalMinutes: z.number().int().min(0).default(15),
 })
 
