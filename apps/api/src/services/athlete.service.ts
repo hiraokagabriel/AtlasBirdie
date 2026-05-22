@@ -1,128 +1,72 @@
-import type { PrismaClient, AthleteStatus } from '../generated/prisma/index.js';
+import type { PrismaClient } from '../generated/prisma';
+import type { CreateAthleteInput, UpdateAthleteInput } from '@atlas-birdie/validators';
 
-export interface ListAthletesParams {
-  tenantId?: string;
-  clubId?: string;
-  status?: AthleteStatus;
-  search?: string;
+export interface AthleteListParams {
+  tenantId: string;
   page?: number;
   perPage?: number;
-}
-
-export interface CreateAthleteInput {
-  tenantId: string;
+  search?: string;
   clubId?: string;
-  name: string;
-  slug: string;
-  document?: string;
-  photoUrl?: string;
-  birthDate?: Date;
-  gender?: string;
-  handedness?: string;
-  city?: string;
-  state?: string;
-  country?: string;
+  status?: string;
 }
 
-export interface UpdateAthleteInput {
-  clubId?: string | null;
-  name?: string;
-  document?: string | null;
-  photoUrl?: string | null;
-  birthDate?: Date | null;
-  gender?: string | null;
-  handedness?: string | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string;
-  status?: AthleteStatus;
-}
+export class AthleteService {
+  constructor(private readonly prisma: PrismaClient) {}
 
-export function createAthleteService(prisma: PrismaClient) {
-  return {
-    async list(params: ListAthletesParams) {
-      const { tenantId, clubId, status, search, page = 1, perPage = 20 } = params;
+  async list(params: AthleteListParams) {
+    const { tenantId, page = 1, perPage = 20, search, clubId, status } = params;
+    const skip = (page - 1) * perPage;
 
-      const where = {
-        deletedAt: null,
-        ...(tenantId && { tenantId }),
-        ...(clubId && { clubId }),
-        ...(status && { status }),
-        ...(search && {
-          name: { contains: search, mode: 'insensitive' as const },
-        }),
-      };
+    const where = {
+      tenantId,
+      deletedAt: null,
+      ...(search && { name: { contains: search, mode: 'insensitive' as const } }),
+      ...(clubId && { clubId }),
+      ...(status && { status: status as never }),
+    };
 
-      const [data, total] = await prisma.$transaction([
-        prisma.athlete.findMany({
-          where,
-          skip: (page - 1) * perPage,
-          take: perPage,
-          orderBy: { name: 'asc' },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            photoUrl: true,
-            city: true,
-            state: true,
-            country: true,
-            status: true,
-            createdAt: true,
-            club: {
-              select: { id: true, name: true, slug: true, acronym: true, logoUrl: true },
-            },
-          },
-        }),
-        prisma.athlete.count({ where }),
-      ]);
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.athlete.findMany({
+        where,
+        skip,
+        take: perPage,
+        orderBy: { name: 'asc' },
+        include: { club: { select: { id: true, name: true, slug: true, logoUrl: true } } },
+      }),
+      this.prisma.athlete.count({ where }),
+    ]);
 
-      return {
-        data,
-        meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) },
-      };
-    },
+    return { data, meta: { total, page, perPage, totalPages: Math.ceil(total / perPage) } };
+  }
 
-    async getBySlug(slug: string) {
-      return prisma.athlete.findFirst({
-        where: { slug, deletedAt: null },
-        include: {
-          club: {
-            select: { id: true, name: true, slug: true, acronym: true, logoUrl: true },
-          },
-          rankingEntries: {
-            take: 5,
-            orderBy: { position: 'asc' },
-            include: {
-              rankingConfig: {
-                select: { discipline: true, season: true },
-              },
-            },
-          },
-        },
-      });
-    },
+  async findBySlug(slug: string, tenantId: string) {
+    return this.prisma.athlete.findFirst({
+      where: { slug, tenantId, deletedAt: null },
+      include: {
+        club: { select: { id: true, name: true, slug: true, logoUrl: true, acronym: true } },
+        pairsAsA: { where: { deletedAt: null, isActive: true }, include: { athleteB: { select: { id: true, name: true, slug: true, photoUrl: true } } } },
+        pairsAsB: { where: { deletedAt: null, isActive: true }, include: { athleteA: { select: { id: true, name: true, slug: true, photoUrl: true } } } },
+      },
+    });
+  }
 
-    async create(input: CreateAthleteInput) {
-      return prisma.athlete.create({ data: input });
-    },
+  async create(tenantId: string, input: CreateAthleteInput) {
+    return this.prisma.athlete.create({
+      data: { tenantId, ...input },
+    });
+  }
 
-    async update(id: string, input: UpdateAthleteInput) {
-      return prisma.athlete.update({ where: { id }, data: input });
-    },
+  async update(id: string, tenantId: string, input: UpdateAthleteInput) {
+    return this.prisma.athlete.update({
+      where: { id },
+      data: input,
+    });
+  }
 
-    async softDelete(id: string) {
-      return prisma.athlete.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      });
-    },
-
-    async findByDocument(tenantId: string, document: string) {
-      return prisma.athlete.findFirst({
-        where: { tenantId, document, deletedAt: null },
-        select: { id: true, name: true, slug: true },
-      });
-    },
-  };
+  async softDelete(id: string, tenantId: string) {
+    return this.prisma.athlete.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
 }
