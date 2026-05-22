@@ -1,11 +1,29 @@
 import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Accepts both:
+ *   - datetime-local input format: "2026-05-22T10:00" or "2026-05-22T10:00:00"
+ *   - Full ISO 8601 with offset:   "2026-05-22T10:00:00.000Z"
+ *
+ * z.string().datetime() only accepts the latter, which breaks <input type="datetime-local">.
+ */
+const datetimeField = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/,
+    'Data inválida — use o formato AAAA-MM-DDTHH:MM',
+  )
+
+const optionalDatetimeField = datetimeField.optional()
+
+// ---------------------------------------------------------------------------
 // Step 1 — General info
 // ---------------------------------------------------------------------------
 
-// Base object (ZodObject) — required for .partial() / .extend() to work.
-// .refine() wraps the schema in ZodEffects, which loses those methods.
 const createTournamentBaseSchema = z.object({
   name: z.string().min(2).max(200),
   slug: z
@@ -17,13 +35,13 @@ const createTournamentBaseSchema = z.object({
   location: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
   state: z.string().max(50).optional(),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
+  startDate: datetimeField,
+  endDate: datetimeField,
   regulationUrl: z.string().url().optional(),
   regulationText: z.string().max(50_000).optional(),
   description: z.string().max(2000).optional(),
-  registrationOpenAt: z.string().datetime().optional(),
-  registrationCloseAt: z.string().datetime().optional(),
+  registrationOpenAt: optionalDatetimeField,
+  registrationCloseAt: optionalDatetimeField,
   maxInscriptionsGlobal: z.number().int().positive().optional(),
 })
 
@@ -43,8 +61,6 @@ export const createTournamentSchema = createTournamentBaseSchema
     },
   )
 
-// .partial() and .extend() operate on the base ZodObject, then refinements
-// are re-applied so the same business rules hold on partial updates.
 export const updateTournamentSchema = createTournamentBaseSchema
   .partial()
   .extend({
