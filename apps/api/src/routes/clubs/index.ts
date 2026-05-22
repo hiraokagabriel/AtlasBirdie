@@ -1,68 +1,63 @@
-import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { createClubSchema, updateClubSchema } from '@atlas-birdie/validators';
-import { ClubService } from '../../services/club.service';
+import type { FastifyPluginAsync } from 'fastify'
+import { ClubService } from '../../services/club.service'
+import { requireAuth, requireRole } from '../../middlewares/auth'
+import { createClubSchema, updateClubSchema, listClubsSchema } from '@atlas/validators'
 
-export const clubRoutes: FastifyPluginAsyncZod = async (app) => {
-  const svc = new ClubService(app.prisma);
+const clubRoutes: FastifyPluginAsync = async (fastify) => {
+  const service = new ClubService(fastify.prisma)
 
   // GET /clubs
-  app.get(
-    '/',
-    {
-      schema: {
-        querystring: z.object({
-          page: z.coerce.number().min(1).default(1),
-          perPage: z.coerce.number().min(1).max(100).default(20),
-          search: z.string().optional(),
-          status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-        }),
-      },
-    },
-    async (req, reply) => {
-      const result = await svc.list({ tenantId: req.tenantId, ...req.query });
-      return reply.send(result);
-    },
-  );
+  fastify.get('/', async (request, reply) => {
+    const query = listClubsSchema.parse(request.query)
+    const tenant = await fastify.prisma.tenant.findFirst()
+    if (!tenant) return reply.status(404).send({ error: 'Tenant not found', code: 'NO_TENANT' })
+
+    const result = await service.list(tenant.id, query)
+    return reply.send(result)
+  })
 
   // GET /clubs/:slug
-  app.get(
-    '/:slug',
-    { schema: { params: z.object({ slug: z.string() }) } },
-    async (req, reply) => {
-      const club = await svc.findBySlug(req.params.slug, req.tenantId);
-      if (!club) return reply.status(404).send({ error: 'Club not found', code: 'CLUB_NOT_FOUND' });
-      return reply.send({ data: club });
-    },
-  );
+  fastify.get<{ Params: { slug: string } }>('/:slug', async (request, reply) => {
+    const tenant = await fastify.prisma.tenant.findFirst()
+    if (!tenant) return reply.status(404).send({ error: 'Tenant not found', code: 'NO_TENANT' })
 
-  // POST /clubs  (admin only)
-  app.post(
+    const club = await service.findBySlug(tenant.id, request.params.slug)
+    if (!club) return reply.status(404).send({ error: 'Club not found', code: 'NOT_FOUND' })
+
+    return reply.send({ data: club })
+  })
+
+  // POST /clubs
+  fastify.post(
     '/',
-    { schema: { body: createClubSchema } },
-    async (req, reply) => {
-      const club = await svc.create(req.tenantId, req.body);
-      return reply.status(201).send({ data: club });
+    { preHandler: [requireAuth, requireRole(['FEDERATION_ADMIN', 'SUPER_ADMIN'])] },
+    async (request, reply) => {
+      const body = createClubSchema.parse(request.body)
+      const club = await service.create(request.tenantId, body)
+      return reply.status(201).send({ data: club })
     },
-  );
+  )
 
-  // PATCH /clubs/:id  (admin only)
-  app.patch(
+  // PATCH /clubs/:id
+  fastify.patch<{ Params: { id: string } }>(
     '/:id',
-    { schema: { params: z.object({ id: z.string().cuid() }), body: updateClubSchema } },
-    async (req, reply) => {
-      const club = await svc.update(req.params.id, req.tenantId, req.body);
-      return reply.send({ data: club });
+    { preHandler: [requireAuth, requireRole(['FEDERATION_ADMIN', 'SUPER_ADMIN'])] },
+    async (request, reply) => {
+      const body = updateClubSchema.parse(request.body)
+      const club = await service.update(request.tenantId, request.params.id, body)
+      return reply.send({ data: club })
     },
-  );
+  )
 
-  // DELETE /clubs/:id  (admin only)
-  app.delete(
+  // DELETE /clubs/:id (soft)
+  fastify.delete<{ Params: { id: string } }>(
     '/:id',
-    { schema: { params: z.object({ id: z.string().cuid() }) } },
-    async (req, reply) => {
-      await svc.softDelete(req.params.id, req.tenantId);
-      return reply.status(204).send();
+    { preHandler: [requireAuth, requireRole(['FEDERATION_ADMIN', 'SUPER_ADMIN'])] },
+    async (request, reply) => {
+      await service.softDelete(request.tenantId, request.params.id)
+      return reply.status(204).send()
     },
-  );
-};
+  )
+}
+
+export default clubRoutes
