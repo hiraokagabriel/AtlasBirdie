@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { MoreHorizontal, Plus, Search, Pencil, Trash2, Eye } from 'lucide-react'
-import { useDebounce } from 'use-debounce'
+import { useDebounce } from '@/hooks/use-debounce'
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'secondary',
@@ -61,14 +61,12 @@ export default function AdminTournamentsPage() {
     perPage: 20,
   })
 
-  // ✅ Hook no escopo do componente — sem args (token vai no payload)
   const deleteMutation = useDeleteTournament()
 
   const handleDelete = async () => {
     if (!deleteTarget) return
     const token = await getToken()
     if (!token) return
-    // ✅ Payload correto: { id, token }
     await deleteMutation.mutateAsync({ id: deleteTarget.id, token })
     setDeleteTarget(null)
   }
