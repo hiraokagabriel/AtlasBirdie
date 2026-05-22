@@ -1,70 +1,69 @@
-import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { z } from 'zod';
-import { createAthleteSchema, updateAthleteSchema } from '@atlas-birdie/validators';
-import { AthleteService } from '../../services/athlete.service';
+import type { FastifyPluginAsync } from 'fastify'
+import { AthleteService } from '../../services/athlete.service'
+import { requireAuth, requireRole } from '../../middlewares/auth'
+import {
+  createAthleteSchema,
+  updateAthleteSchema,
+  listAthletesSchema,
+} from '@atlas/validators'
+import { z } from 'zod'
 
-export const athleteRoutes: FastifyPluginAsyncZod = async (app) => {
-  const svc = new AthleteService(app.prisma);
+const athleteRoutes: FastifyPluginAsync = async (fastify) => {
+  const service = new AthleteService(fastify.prisma)
 
-  // GET /athletes
-  app.get(
-    '/',
-    {
-      schema: {
-        querystring: z.object({
-          page: z.coerce.number().min(1).default(1),
-          perPage: z.coerce.number().min(1).max(100).default(20),
-          search: z.string().optional(),
-          clubId: z.string().optional(),
-          status: z.enum(['PENDING', 'ACTIVE', 'SUSPENDED', 'INACTIVE']).optional(),
-        }),
-      },
-    },
-    async (req, reply) => {
-      const tenantId = req.tenantId;
-      const result = await svc.list({ tenantId, ...req.query });
-      return reply.send(result);
-    },
-  );
+  // GET /athletes — lista pública paginada
+  fastify.get('/', async (request, reply) => {
+    const query = listAthletesSchema.parse(request.query)
+    // tenantId vem do header ou do subdomain; por ora usa o primeiro tenant
+    const tenant = await fastify.prisma.tenant.findFirst()
+    if (!tenant) return reply.status(404).send({ error: 'Tenant not found', code: 'NO_TENANT' })
+
+    const result = await service.list(tenant.id, query)
+    return reply.send(result)
+  })
 
   // GET /athletes/:slug
-  app.get(
-    '/:slug',
-    { schema: { params: z.object({ slug: z.string() }) } },
-    async (req, reply) => {
-      const athlete = await svc.findBySlug(req.params.slug, req.tenantId);
-      if (!athlete) return reply.status(404).send({ error: 'Athlete not found', code: 'ATHLETE_NOT_FOUND' });
-      return reply.send({ data: athlete });
-    },
-  );
+  fastify.get<{ Params: { slug: string } }>('/:slug', async (request, reply) => {
+    const tenant = await fastify.prisma.tenant.findFirst()
+    if (!tenant) return reply.status(404).send({ error: 'Tenant not found', code: 'NO_TENANT' })
 
-  // POST /athletes  (admin only)
-  app.post(
+    const athlete = await service.findBySlug(tenant.id, request.params.slug)
+    if (!athlete) return reply.status(404).send({ error: 'Athlete not found', code: 'NOT_FOUND' })
+
+    return reply.send({ data: athlete })
+  })
+
+  // POST /athletes — requer auth
+  fastify.post(
     '/',
-    { schema: { body: createAthleteSchema } },
-    async (req, reply) => {
-      const athlete = await svc.create(req.tenantId, req.body);
-      return reply.status(201).send({ data: athlete });
+    { preHandler: [requireAuth, requireRole(['FEDERATION_ADMIN', 'TOURNAMENT_ORGANIZER', 'SUPER_ADMIN'])] },
+    async (request, reply) => {
+      const body = createAthleteSchema.parse(request.body)
+      const athlete = await service.create(request.tenantId, body)
+      return reply.status(201).send({ data: athlete })
     },
-  );
+  )
 
-  // PATCH /athletes/:id  (admin only)
-  app.patch(
+  // PATCH /athletes/:id
+  fastify.patch<{ Params: { id: string } }>(
     '/:id',
-    { schema: { params: z.object({ id: z.string().cuid() }), body: updateAthleteSchema } },
-    async (req, reply) => {
-      const athlete = await svc.update(req.params.id, req.tenantId, req.body);
-      return reply.send({ data: athlete });
+    { preHandler: [requireAuth, requireRole(['FEDERATION_ADMIN', 'TOURNAMENT_ORGANIZER', 'SUPER_ADMIN'])] },
+    async (request, reply) => {
+      const body = updateAthleteSchema.parse(request.body)
+      const athlete = await service.update(request.tenantId, request.params.id, body)
+      return reply.send({ data: athlete })
     },
-  );
+  )
 
-  // DELETE /athletes/:id  (admin only)
-  app.delete(
+  // DELETE /athletes/:id (soft)
+  fastify.delete<{ Params: { id: string } }>(
     '/:id',
-    { schema: { params: z.object({ id: z.string().cuid() }) } },
-    async (req, reply) => {
-      await svc.softDelete(req.params.id, req.tenantId);
-      return reply.status(204).send();
+    { preHandler: [requireAuth, requireRole(['FEDERATION_ADMIN', 'SUPER_ADMIN'])] },
+    async (request, reply) => {
+      await service.softDelete(request.tenantId, request.params.id)
+      return reply.status(204).send()
     },
-  );
-};
+  )
+}
+
+export default athleteRoutes

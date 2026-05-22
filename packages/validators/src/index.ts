@@ -1,3 +1,4 @@
-export * from './athlete';
-export * from './club';
-export * from './pair';
+export * from './athlete'
+export * from './club'
+export * from './tournament'
+export * from './pagination'

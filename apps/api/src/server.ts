@@ -1,28 +1,57 @@
-import Fastify from 'fastify';
-import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { prismaPlugin } from './plugins/prisma';
-import { redisPlugin } from './plugins/redis';
-import { athleteRoutes } from './routes/athletes';
-import { clubRoutes } from './routes/clubs';
-import { pairRoutes } from './routes/pairs';
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import prismaPlugin from './plugins/prisma'
+import redisPlugin from './plugins/redis'
+import athleteRoutes from './routes/athletes/index'
+import clubRoutes from './routes/clubs/index'
 
-const app = Fastify({ logger: true });
+export async function buildServer() {
+  const fastify = Fastify({
+    logger: {
+      level: process.env.LOG_LEVEL ?? 'info',
+    },
+  })
 
-app.setValidatorCompiler(validatorCompiler);
-app.setSerializerCompiler(serializerCompiler);
+  // Plugins
+  await fastify.register(cors, {
+    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    credentials: true,
+  })
+  await fastify.register(prismaPlugin)
+  await fastify.register(redisPlugin)
 
-void app.register(prismaPlugin);
-void app.register(redisPlugin);
+  // Error handler
+  fastify.setErrorHandler((error, _request, reply) => {
+    const status = (error as { status?: number }).status ?? 500
+    const code = (error as { code?: string }).code ?? 'INTERNAL_ERROR'
 
-void app.register(athleteRoutes, { prefix: '/api/athletes' });
-void app.register(clubRoutes, { prefix: '/api/clubs' });
-void app.register(pairRoutes, { prefix: '/api/pairs' });
+    if (status >= 500) {
+      fastify.log.error(error)
+    }
 
-const PORT = Number(process.env.PORT ?? 3001);
+    return reply.status(status).send({
+      error: error.message,
+      code,
+    })
+  })
 
-app.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
-  if (err) {
-    app.log.error(err);
-    process.exit(1);
+  // Routes
+  await fastify.register(athleteRoutes, { prefix: '/api/athletes' })
+  await fastify.register(clubRoutes, { prefix: '/api/clubs' })
+
+  return fastify
+}
+
+async function start() {
+  const server = await buildServer()
+  const port = Number(process.env.PORT ?? 3001)
+
+  try {
+    await server.listen({ port, host: '0.0.0.0' })
+  } catch (err) {
+    server.log.error(err)
+    process.exit(1)
   }
-});
+}
+
+start()

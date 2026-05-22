@@ -1,40 +1,40 @@
-const API_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3333';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-type ApiResponse<T> = {
-  data: T;
-};
+type RequestOptions = {
+  token?: string
+  revalidate?: number
+}
 
-type ApiListResponse<T> = {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    perPage: number;
-  };
-};
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
-
-  if (!res.ok) {
-    const error = (await res.json()) as { error: string; code: string };
-    throw new Error(error.error ?? 'Unknown API error');
+async function request<T>(path: string, init?: RequestInit, options?: RequestOptions): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.token ? { Authorization: `Bearer ${options.token}` } : {}),
   }
 
-  return res.json() as Promise<T>;
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+    next: options?.revalidate !== undefined ? { revalidate: options.revalidate } : undefined,
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error', code: 'UNKNOWN' }))
+    throw Object.assign(new Error(err.error ?? 'Request failed'), { code: err.code, status: res.status })
+  }
+
+  return res.json() as Promise<T>
 }
 
 export const api = {
-  get: <T>(path: string) => request<ApiResponse<T>>(path),
-  getList: <T>(path: string) => request<ApiListResponse<T>>(path),
-  post: <T>(path: string, body: unknown) =>
-    request<ApiResponse<T>>(path, { method: 'POST', body: JSON.stringify(body) }),
-  put: <T>(path: string, body: unknown) =>
-    request<ApiResponse<T>>(path, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: <T>(path: string, body: unknown) =>
-    request<ApiResponse<T>>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(path: string) => request<ApiResponse<T>>(path, { method: 'DELETE' }),
-};
+  get: <T>(path: string, options?: RequestOptions) =>
+    request<T>(path, { method: 'GET' }, options),
+
+  post: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(body) }, options),
+
+  patch: <T>(path: string, body: unknown, options?: RequestOptions) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }, options),
+
+  delete: <T>(path: string, options?: RequestOptions) =>
+    request<T>(path, { method: 'DELETE' }, options),
+}
