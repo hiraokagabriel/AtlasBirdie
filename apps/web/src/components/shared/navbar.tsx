@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth, UserButton } from '@clerk/nextjs';
+import { useAuth, UserButton, OrganizationSwitcher } from '@clerk/nextjs';
 
 const navLinks = [
   { href: '/tournaments', label: 'Torneios' },
@@ -48,7 +48,29 @@ export function Navbar() {
         {/* Auth area */}
         <div className="flex items-center gap-3">
           {isSignedIn ? (
-            <UserButton />
+            <>
+              {/*
+               * OrganizationSwitcher permite ao usuário selecionar a organização
+               * ativa na sessão. Isso é necessário para que o Clerk popule orgRole
+               * no token — sem uma org ativa, orgRole retorna null e o AdminRoleGuard
+               * bloqueia o acesso ao painel admin.
+               *
+               * TODO Phase 2: mover para um componente dedicado no AdminSidebar
+               * e remover da Navbar pública quando o fluxo de org for consolidado.
+               */}
+              <OrganizationSwitcher
+                hidePersonal
+                afterSelectOrganizationUrl="/admin"
+                appearance={{
+                  elements: {
+                    rootBox: 'flex items-center',
+                    organizationSwitcherTrigger:
+                      'text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors px-2 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800',
+                  },
+                }}
+              />
+              <UserButton />
+            </>
           ) : (
             <>
               <Link
