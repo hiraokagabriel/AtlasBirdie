@@ -1,20 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ComponentType } from 'react'
 
-// eval() prevents Webpack from statically analysing the require path.
-// This chunk is only loaded in the browser (next/dynamic ssr:false in
-// query-provider.tsx) and only renders in development.
+interface DevtoolsProps {
+  initialIsOpen: boolean
+}
+
 export function QueryDevtools() {
-  const [Devtools, setDevtools] = useState<React.ComponentType<{ initialIsOpen: boolean }> | null>(null)
+  const [Devtools, setDevtools] = useState<ComponentType<DevtoolsProps> | null>(null)
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return
-    // eslint-disable-next-line no-eval
-    const mod = eval("require")('@tanstack/react-query-devtools') as {
-      ReactQueryDevtools: React.ComponentType<{ initialIsOpen: boolean }>
-    }
-    setDevtools(() => mod.ReactQueryDevtools)
+
+    import('@tanstack/react-query-devtools').then((mod) => {
+      setDevtools(() => mod.ReactQueryDevtools as ComponentType<DevtoolsProps>)
+    }).catch(() => {
+      // silently ignore if devtools are unavailable
+    })
   }, [])
 
   if (!Devtools) return null
