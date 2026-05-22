@@ -1,114 +1,68 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { createClubService } from '../../services/club.service.js';
-import { verifyAuth, verifyRole } from '../../middlewares/auth.js';
+import { createClubSchema, updateClubSchema } from '@atlas-birdie/validators';
+import { ClubService } from '../../services/club.service';
 
-const listQuerySchema = z.object({
-  tenantId: z.string().optional(),
-  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-  search: z.string().optional(),
-  page: z.coerce.number().min(1).default(1),
-  perPage: z.coerce.number().min(1).max(100).default(20),
-});
+export const clubRoutes: FastifyPluginAsyncZod = async (app) => {
+  const svc = new ClubService(app.prisma);
 
-const createBodySchema = z.object({
-  tenantId: z.string().min(1),
-  name: z.string().min(2).max(120),
-  slug: z.string().min(2).max(120).regex(/^[a-z0-9-]+$/),
-  acronym: z.string().min(2).max(10),
-  logoUrl: z.string().url().optional(),
-  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().max(50).optional(),
-  country: z.string().length(2).default('BR'),
-});
+  // GET /clubs
+  app.get(
+    '/',
+    {
+      schema: {
+        querystring: z.object({
+          page: z.coerce.number().min(1).default(1),
+          perPage: z.coerce.number().min(1).max(100).default(20),
+          search: z.string().optional(),
+          status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
+        }),
+      },
+    },
+    async (req, reply) => {
+      const result = await svc.list({ tenantId: req.tenantId, ...req.query });
+      return reply.send(result);
+    },
+  );
 
-const updateBodySchema = createBodySchema
-  .omit({ tenantId: true, slug: true })
-  .extend({
-    status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE']).optional(),
-    logoUrl: z.string().url().nullable().optional(),
-    primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
-  })
-  .partial();
+  // GET /clubs/:slug
+  app.get(
+    '/:slug',
+    { schema: { params: z.object({ slug: z.string() }) } },
+    async (req, reply) => {
+      const club = await svc.findBySlug(req.params.slug, req.tenantId);
+      if (!club) return reply.status(404).send({ error: 'Club not found', code: 'CLUB_NOT_FOUND' });
+      return reply.send({ data: club });
+    },
+  );
 
-export default async function clubRoutes(app: FastifyInstance) {
-  const service = createClubService(app.prisma);
-
-  // GET /api/clubs — público
-  app.get('/', async (request, reply) => {
-    const query = listQuerySchema.safeParse(request.query);
-    if (!query.success) {
-      return reply.code(400).send({
-        error: 'Validation error',
-        code: 'INVALID_QUERY',
-        details: query.error.flatten(),
-      });
-    }
-    const result = await service.list(query.data);
-    return reply.send(result);
-  });
-
-  // GET /api/clubs/:slug — público
-  app.get<{ Params: { slug: string } }>('/:slug', async (request, reply) => {
-    const club = await service.getBySlug(request.params.slug);
-    if (!club) {
-      return reply.code(404).send({ error: 'Club not found', code: 'NOT_FOUND' });
-    }
-    return reply.send({ data: club });
-  });
-
-  // POST /api/clubs — requer auth + role admin
+  // POST /clubs  (admin only)
   app.post(
     '/',
-    { preHandler: [verifyAuth, verifyRole('SUPER_ADMIN', 'FEDERATION_ADMIN')] },
-    async (request, reply) => {
-      const body = createBodySchema.safeParse(request.body);
-      if (!body.success) {
-        return reply.code(400).send({
-          error: 'Validation error',
-          code: 'INVALID_BODY',
-          details: body.error.flatten(),
-        });
-      }
-      const club = await service.create(body.data);
-      return reply.code(201).send({ data: club });
+    { schema: { body: createClubSchema } },
+    async (req, reply) => {
+      const club = await svc.create(req.tenantId, req.body);
+      return reply.status(201).send({ data: club });
     },
   );
 
-  // PUT /api/clubs/:id — requer auth + role admin
-  app.put<{ Params: { id: string } }>(
+  // PATCH /clubs/:id  (admin only)
+  app.patch(
     '/:id',
-    { preHandler: [verifyAuth, verifyRole('SUPER_ADMIN', 'FEDERATION_ADMIN')] },
-    async (request, reply) => {
-      const body = updateBodySchema.safeParse(request.body);
-      if (!body.success) {
-        return reply.code(400).send({
-          error: 'Validation error',
-          code: 'INVALID_BODY',
-          details: body.error.flatten(),
-        });
-      }
-      try {
-        const club = await service.update(request.params.id, body.data);
-        return reply.send({ data: club });
-      } catch {
-        return reply.code(404).send({ error: 'Club not found', code: 'NOT_FOUND' });
-      }
+    { schema: { params: z.object({ id: z.string().cuid() }), body: updateClubSchema } },
+    async (req, reply) => {
+      const club = await svc.update(req.params.id, req.tenantId, req.body);
+      return reply.send({ data: club });
     },
   );
 
-  // DELETE /api/clubs/:id — soft delete, requer auth + role admin
-  app.delete<{ Params: { id: string } }>(
+  // DELETE /clubs/:id  (admin only)
+  app.delete(
     '/:id',
-    { preHandler: [verifyAuth, verifyRole('SUPER_ADMIN', 'FEDERATION_ADMIN')] },
-    async (request, reply) => {
-      try {
-        await service.softDelete(request.params.id);
-        return reply.code(204).send();
-      } catch {
-        return reply.code(404).send({ error: 'Club not found', code: 'NOT_FOUND' });
-      }
+    { schema: { params: z.object({ id: z.string().cuid() }) } },
+    async (req, reply) => {
+      await svc.softDelete(req.params.id, req.tenantId);
+      return reply.status(204).send();
     },
   );
-}
+};

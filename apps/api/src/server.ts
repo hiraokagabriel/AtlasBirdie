@@ -1,41 +1,28 @@
-import 'dotenv/config';
 import Fastify from 'fastify';
-import multipart from '@fastify/multipart';
-import prismaPlugin from './plugins/prisma.js';
-import redisPlugin from './plugins/redis.js';
-// import uploadthingPlugin from './plugins/uploadthing.js';
-import athleteRoutes from './routes/athletes/index.js';
-import athleteRegisterRoute from './routes/athletes/register.js';
-import athleteImportRoutes from './routes/athletes/import.js';
-import clubRoutes from './routes/clubs/index.js';
-// import './jobs/registration-confirmation.worker.js';
+import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import { prismaPlugin } from './plugins/prisma';
+import { redisPlugin } from './plugins/redis';
+import { athleteRoutes } from './routes/athletes';
+import { clubRoutes } from './routes/clubs';
+import { pairRoutes } from './routes/pairs';
 
-const app = Fastify({
-  logger: { level: process.env['LOG_LEVEL'] ?? 'info' },
-});
+const app = Fastify({ logger: true });
 
-await app.register(prismaPlugin);
-await app.register(redisPlugin);
-// await app.register(uploadthingPlugin);
-await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+app.setValidatorCompiler(validatorCompiler);
+app.setSerializerCompiler(serializerCompiler);
 
-await app.register(athleteRoutes, { prefix: '/api/athletes' });
-await app.register(athleteRegisterRoute, { prefix: '/api/athletes' });
-await app.register(athleteImportRoutes, { prefix: '/api/athletes' });
-await app.register(clubRoutes, { prefix: '/api/clubs' });
+void app.register(prismaPlugin);
+void app.register(redisPlugin);
 
-app.get('/health', async () => ({
-  data: { status: 'ok', timestamp: new Date().toISOString() },
-}));
+void app.register(athleteRoutes, { prefix: '/api/athletes' });
+void app.register(clubRoutes, { prefix: '/api/clubs' });
+void app.register(pairRoutes, { prefix: '/api/pairs' });
 
-const start = async () => {
-  try {
-    const port = Number(process.env['PORT'] ?? 3333);
-    await app.listen({ port, host: '0.0.0.0' });
-  } catch (error) {
-    app.log.error(error);
+const PORT = Number(process.env.PORT ?? 3001);
+
+app.listen({ port: PORT, host: '0.0.0.0' }, (err) => {
+  if (err) {
+    app.log.error(err);
     process.exit(1);
   }
-};
-
-start();
+});

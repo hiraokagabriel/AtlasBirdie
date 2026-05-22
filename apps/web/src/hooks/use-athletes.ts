@@ -1,85 +1,51 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import type { AthleteDTO, PaginatedResponse, SingleResponse } from '@atlas-birdie/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+export const athleteKeys = {
+  all: ['athletes'] as const,
+  list: (params: Record<string, unknown>) => [...athleteKeys.all, 'list', params] as const,
+  detail: (slug: string) => [...athleteKeys.all, 'detail', slug] as const,
+};
 
-export interface Athlete {
-  id: string;
-  name: string;
-  slug: string;
-  photoUrl: string | null;
-  city: string | null;
-  state: string | null;
-  country: string;
-  status: string;
-  createdAt: string;
-  club: {
-    id: string;
-    name: string;
-    slug: string;
-    acronym: string;
-    logoUrl: string | null;
-  } | null;
-}
-
-export interface AthleteFull extends Athlete {
-  birthDate: string | null;
-  gender: string | null;
-  handedness: string | null;
-  rankingEntries: Array<{
-    position: number;
-    previousPosition: number | null;
-    points: number;
-    rankingConfig: { discipline: string; season: number };
-  }>;
-}
-
-export interface ListMeta {
-  total: number;
-  page: number;
-  perPage: number;
-  totalPages: number;
-}
-
-export interface ListAthletesParams {
-  search?: string;
-  clubId?: string;
-  status?: string;
-  page?: number;
-  perPage?: number;
-}
-
-async function fetchAthletes(params: ListAthletesParams): Promise<{ data: Athlete[]; meta: ListMeta }> {
-  const qs = new URLSearchParams();
-  if (params.search) qs.set('search', params.search);
-  if (params.clubId) qs.set('clubId', params.clubId);
-  if (params.status) qs.set('status', params.status);
-  if (params.page) qs.set('page', String(params.page));
-  if (params.perPage) qs.set('perPage', String(params.perPage));
-
-  const res = await fetch(`${API_URL}/api/athletes?${qs.toString()}`);
-  if (!res.ok) throw new Error('Erro ao buscar atletas');
-  return res.json();
-}
-
-async function fetchAthleteBySlug(slug: string): Promise<{ data: AthleteFull }> {
-  const res = await fetch(`${API_URL}/api/athletes/${slug}`);
-  if (!res.ok) throw new Error('Atleta não encontrado');
-  return res.json();
-}
-
-export function useAthletes(params: ListAthletesParams = {}) {
+export function useAthletes(params: { page?: number; perPage?: number; search?: string; clubId?: string; status?: string } = {}) {
   return useQuery({
-    queryKey: ['athletes', params],
-    queryFn: () => fetchAthletes(params),
+    queryKey: athleteKeys.list(params),
+    queryFn: () => api.get<PaginatedResponse<AthleteDTO>>('/athletes', params),
   });
 }
 
 export function useAthlete(slug: string) {
   return useQuery({
-    queryKey: ['athlete', slug],
-    queryFn: () => fetchAthleteBySlug(slug),
-    enabled: !!slug,
+    queryKey: athleteKeys.detail(slug),
+    queryFn: () => api.get<SingleResponse<AthleteDTO>>(`/athletes/${slug}`),
+    enabled: Boolean(slug),
+  });
+}
+
+export function useCreateAthlete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: unknown) => api.post<SingleResponse<AthleteDTO>>('/athletes', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: athleteKeys.all }),
+  });
+}
+
+export function useUpdateAthlete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.patch<SingleResponse<AthleteDTO>>(`/athletes/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: athleteKeys.all }),
+  });
+}
+
+export function useDeleteAthlete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/athletes/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: athleteKeys.all }),
   });
 }

@@ -1,3 +1,3 @@
-export * from './athlete.js';
-export * from './club.js';
-export * from './pair.js';
+export * from './athlete';
+export * from './club';
+export * from './pair';

@@ -1,72 +1,51 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import type { ClubDTO, PaginatedResponse, SingleResponse } from '@atlas-birdie/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+export const clubKeys = {
+  all: ['clubs'] as const,
+  list: (params: Record<string, unknown>) => [...clubKeys.all, 'list', params] as const,
+  detail: (slug: string) => [...clubKeys.all, 'detail', slug] as const,
+};
 
-export interface Club {
-  id: string;
-  name: string;
-  slug: string;
-  acronym: string;
-  logoUrl: string | null;
-  primaryColor: string | null;
-  city: string | null;
-  state: string | null;
-  country: string;
-  status: string;
-  createdAt: string;
-  _count: { athletes: number };
-}
-
-export interface ClubFull extends Omit<Club, '_count'> {
-  athletes: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    photoUrl: string | null;
-    city: string | null;
-    state: string | null;
-    status: string;
-  }>;
-}
-
-export interface ListClubsParams {
-  search?: string;
-  status?: string;
-  page?: number;
-  perPage?: number;
-}
-
-async function fetchClubs(params: ListClubsParams): Promise<{ data: Club[]; meta: { total: number; page: number; perPage: number; totalPages: number } }> {
-  const qs = new URLSearchParams();
-  if (params.search) qs.set('search', params.search);
-  if (params.status) qs.set('status', params.status);
-  if (params.page) qs.set('page', String(params.page));
-  if (params.perPage) qs.set('perPage', String(params.perPage));
-
-  const res = await fetch(`${API_URL}/api/clubs?${qs.toString()}`);
-  if (!res.ok) throw new Error('Erro ao buscar clubes');
-  return res.json();
-}
-
-async function fetchClubBySlug(slug: string): Promise<{ data: ClubFull }> {
-  const res = await fetch(`${API_URL}/api/clubs/${slug}`);
-  if (!res.ok) throw new Error('Clube não encontrado');
-  return res.json();
-}
-
-export function useClubs(params: ListClubsParams = {}) {
+export function useClubs(params: { page?: number; perPage?: number; search?: string; status?: string } = {}) {
   return useQuery({
-    queryKey: ['clubs', params],
-    queryFn: () => fetchClubs(params),
+    queryKey: clubKeys.list(params),
+    queryFn: () => api.get<PaginatedResponse<ClubDTO>>('/clubs', params),
   });
 }
 
 export function useClub(slug: string) {
   return useQuery({
-    queryKey: ['club', slug],
-    queryFn: () => fetchClubBySlug(slug),
-    enabled: !!slug,
+    queryKey: clubKeys.detail(slug),
+    queryFn: () => api.get<SingleResponse<ClubDTO>>(`/clubs/${slug}`),
+    enabled: Boolean(slug),
+  });
+}
+
+export function useCreateClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: unknown) => api.post<SingleResponse<ClubDTO>>('/clubs', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: clubKeys.all }),
+  });
+}
+
+export function useUpdateClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
+      api.patch<SingleResponse<ClubDTO>>(`/clubs/${id}`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: clubKeys.all }),
+  });
+}
+
+export function useDeleteClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/clubs/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: clubKeys.all }),
   });
 }
