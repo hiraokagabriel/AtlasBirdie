@@ -61,13 +61,15 @@ export default function AdminTournamentsPage() {
     perPage: 20,
   })
 
-  const deleteMutation = useDeleteTournament('')
+  // ✅ Hook no escopo do componente — sem args (token vai no payload)
+  const deleteMutation = useDeleteTournament()
 
   const handleDelete = async () => {
     if (!deleteTarget) return
     const token = await getToken()
     if (!token) return
-    await useDeleteTournament(token).mutateAsync(deleteTarget.id)
+    // ✅ Payload correto: { id, token }
+    await deleteMutation.mutateAsync({ id: deleteTarget.id, token })
     setDeleteTarget(null)
   }
 
@@ -138,8 +140,7 @@ export default function AdminTournamentsPage() {
             ) : tournaments.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12 text-[var(--color-text-muted)]">
-                  Nenhum torneio encontrado.
-                  {' '}
+                  Nenhum torneio encontrado.{' '}
                   <Link href="/admin/tournaments/new" className="underline text-[var(--color-primary)]">
                     Criar o primeiro
                   </Link>
@@ -155,7 +156,14 @@ export default function AdminTournamentsPage() {
                   <TableCell className="text-sm">{t.periodLabel}</TableCell>
                   <TableCell className="text-sm tabular-nums">{t.eventsCount}</TableCell>
                   <TableCell>
-                    <Badge variant={(STATUS_COLORS[t.status] ?? 'secondary') as 'default' | 'secondary' | 'outline'}>
+                    <Badge
+                      variant={
+                        (STATUS_COLORS[t.status] ?? 'secondary') as
+                          | 'default'
+                          | 'secondary'
+                          | 'outline'
+                      }
+                    >
                       {t.statusLabel}
                     </Badge>
                   </TableCell>
