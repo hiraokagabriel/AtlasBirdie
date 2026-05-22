@@ -2,96 +2,125 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useForm } from 'react-hook-form';
 import { useClubs, useDeleteClub, useCreateClub } from '@/hooks/use-clubs';
 
-const STATES = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+interface CreateClubForm {
+  name: string;
+  acronym: string;
+  city?: string;
+  state?: string;
+}
 
 function CreateClubModal({ onClose }: { onClose: () => void }) {
   const createMutation = useCreateClub();
-  const [form, setForm] = useState({ name: '', acronym: '', city: '', state: 'SP', email: '', phone: '', website: '' });
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CreateClubForm>();
 
-  const set = (field: string, value: string) => setForm((f) => ({ ...f, [field]: value }));
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    await createMutation.mutateAsync({
-      ...form,
-      phone: form.phone || undefined,
-      website: form.website || undefined,
-      email: form.email || undefined,
-    });
+  const onSubmit = async (data: CreateClubForm) => {
+    await createMutation.mutateAsync(data);
     onClose();
-  }
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" role="dialog" aria-modal aria-label="Adicionar clube">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 p-6">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-club-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Adicionar clube</h2>
-          <button onClick={onClose} aria-label="Fechar" className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <h2 id="create-club-title" className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+            Novo clube
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label htmlFor="club-name" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nome do clube *</label>
-              <input id="club-name" required value={form.name} onChange={(e) => set('name', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Ex: Associação Atlética Paulista" />
-            </div>
-            <div>
-              <label htmlFor="club-acronym" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Sigla *</label>
-              <input id="club-acronym" required maxLength={8} value={form.acronym} onChange={(e) => set('acronym', e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="AAP" />
-            </div>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="club-name" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Nome do clube</label>
+            <input
+              id="club-name"
+              type="text"
+              {...register('name', { required: 'Nome é obrigatório' })}
+              className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Ex: Associação Badminton SP"
+            />
+            {errors.name && <span className="text-xs text-red-500">{errors.name.message}</span>}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="club-acronym" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Sigla</label>
+            <input
+              id="club-acronym"
+              type="text"
+              {...register('acronym', {
+                required: 'Sigla é obrigatória',
+                maxLength: { value: 10, message: 'Máximo 10 caracteres' },
+              })}
+              className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm font-mono bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase"
+              placeholder="ABSP"
+            />
+            {errors.acronym && <span className="text-xs text-red-500">{errors.acronym.message}</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="club-city" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Cidade *</label>
-              <input id="club-city" required value={form.city} onChange={(e) => set('city', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="São Paulo" />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="club-city" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Cidade <span className="text-zinc-400">(opc.)</span>
+              </label>
+              <input
+                id="club-city"
+                type="text"
+                {...register('city')}
+                className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="São Paulo"
+              />
             </div>
-            <div>
-              <label htmlFor="club-state" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Estado *</label>
-              <select id="club-state" value={form.state} onChange={(e) => set('state', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="club-email" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">E-mail</label>
-            <input id="club-email" type="email" value={form.email} onChange={(e) => set('email', e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="contato@clube.com.br" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="club-phone" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Telefone</label>
-              <input id="club-phone" type="tel" value={form.phone} onChange={(e) => set('phone', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="(11) 99999-9999" />
-            </div>
-            <div>
-              <label htmlFor="club-website" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Site</label>
-              <input id="club-website" type="url" value={form.website} onChange={(e) => set('website', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="https://" />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="club-state" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Estado <span className="text-zinc-400">(opc.)</span>
+              </label>
+              <input
+                id="club-state"
+                type="text"
+                {...register('state')}
+                className="border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="SP"
+                maxLength={2}
+              />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancelar</button>
-            <button type="submit" disabled={createMutation.isPending}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
-              {createMutation.isPending ? 'Salvando…' : 'Adicionar'}
+          {createMutation.isError && (
+            <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
+              Erro ao criar clube. Verifique os dados e tente novamente.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || createMutation.isPending}
+              className="px-5 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {createMutation.isPending ? 'Criando...' : 'Criar clube'}
             </button>
           </div>
         </form>
@@ -108,67 +137,95 @@ export default function AdminClubsPage() {
   const deleteMutation = useDeleteClub();
 
   return (
-    <div>
+    <div className="p-6">
       {showCreate && <CreateClubModal onClose={() => setShowCreate(false)} />}
 
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Clubes</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-          Adicionar clube
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Novo clube
         </button>
       </div>
 
-      <input type="search" placeholder="Buscar clube…" value={search}
+      <input
+        type="search"
+        placeholder="Buscar clube..."
+        value={search}
         onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        className="mb-4 w-full max-w-sm border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+        className="mb-4 w-full max-w-sm border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      />
 
       {isLoading ? (
-        <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 animate-pulse" />)}</div>
+        <p className="text-sm text-zinc-400">Carregando...</p>
       ) : (
         <>
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+          <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Nome</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Sigla</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Cidade</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wide">Status</th>
-                  <th className="px-4 py-3" />
+              <thead className="bg-zinc-50 dark:bg-zinc-900">
+                <tr className="border-b border-zinc-100 dark:border-zinc-800 text-left">
+                  <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Nome</th>
+                  <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Sigla</th>
+                  <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Cidade</th>
+                  <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Status</th>
+                  <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {data?.data?.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-400">Nenhum clube cadastrado ainda.</td></tr>
-                )}
-                {data?.data?.map((club) => (
-                  <tr key={club.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
-                      <Link href={`/clubs/${club.slug}`} className="hover:text-emerald-600 transition-colors">{club.name}</Link>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-zinc-500">{club.acronym}</td>
-                    <td className="px-4 py-3 text-zinc-500">{club.city ?? '—'}, {club.state}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">{club.status}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => { if (confirm('Remover clube?')) deleteMutation.mutate(club.id); }}
-                        className="text-red-500 hover:text-red-700 text-xs transition-colors">Remover</button>
+              <tbody>
+                {data?.data.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-sm text-zinc-400">
+                      Nenhum clube encontrado. Crie o primeiro usando o botão acima.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  data?.data.map((club) => (
+                    <tr key={club.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <Link href={`/clubs/${club.slug}`} className="font-medium text-zinc-900 dark:text-zinc-50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                          {club.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-zinc-500">{club.acronym}</td>
+                      <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">{club.city ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                          {club.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => {
+                            if (confirm(`Remover clube "${club.name}"?`)) {
+                              deleteMutation.mutate(club.id);
+                            }
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 hover:underline transition-colors"
+                        >
+                          Remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-          {data?.meta && data.meta.totalPages > 1 && (
-            <div className="mt-4 flex items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="disabled:opacity-40">← Anterior</button>
-              <span className="tabular-nums">{page} / {data.meta.totalPages}</span>
-              <button disabled={page >= data.meta.totalPages} onClick={() => setPage((p) => p + 1)} className="disabled:opacity-40">Próxima →</button>
+
+          {data?.meta && (
+            <div className="mt-4 flex items-center gap-3 text-sm text-zinc-500">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="disabled:opacity-40 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors">
+                ← Anterior
+              </button>
+              <span>{page} / {data.meta.totalPages}</span>
+              <button disabled={page >= data.meta.totalPages} onClick={() => setPage((p) => p + 1)} className="disabled:opacity-40 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors">
+                Próxima →
+              </button>
             </div>
           )}
         </>
