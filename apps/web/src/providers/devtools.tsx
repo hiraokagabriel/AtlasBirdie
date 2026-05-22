@@ -1,15 +1,22 @@
 'use client'
 
-// This file is only ever loaded in the browser (via next/dynamic ssr:false).
-// The NODE_ENV check ensures the heavy devtools package is never evaluated
-// in production — if the condition is false, nothing is imported or rendered.
+import { useState, useEffect } from 'react'
+
+// eval() prevents Webpack from statically analysing the require path.
+// This chunk is only loaded in the browser (next/dynamic ssr:false in
+// query-provider.tsx) and only renders in development.
 export function QueryDevtools() {
-  if (process.env.NODE_ENV !== 'development') return null
+  const [Devtools, setDevtools] = useState<React.ComponentType<{ initialIsOpen: boolean }> | null>(null)
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { ReactQueryDevtools } = require('@tanstack/react-query-devtools') as {
-    ReactQueryDevtools: React.ComponentType<{ initialIsOpen: boolean }>
-  }
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return
+    // eslint-disable-next-line no-eval
+    const mod = eval("require")('@tanstack/react-query-devtools') as {
+      ReactQueryDevtools: React.ComponentType<{ initialIsOpen: boolean }>
+    }
+    setDevtools(() => mod.ReactQueryDevtools)
+  }, [])
 
-  return <ReactQueryDevtools initialIsOpen={false} />
+  if (!Devtools) return null
+  return <Devtools initialIsOpen={false} />
 }
