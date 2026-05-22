@@ -19,7 +19,7 @@ export default function RankingsPage() {
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">Rankings</h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              Classificação nacional por temporada, categoria e disciplina.
+              Classifica&#231;&#227;o nacional por temporada, categoria e disciplina.
             </p>
           </div>
 
@@ -66,14 +66,14 @@ export default function RankingsPage() {
         {/* Error */}
         {isError && (
           <div className="flex flex-col items-center py-16 text-center">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Não foi possível carregar o ranking.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">N&#227;o foi poss&#237;vel carregar o ranking.</p>
           </div>
         )}
 
         {/* Empty */}
         {data && data.entries.length === 0 && (
           <div className="flex flex-col items-center py-16 text-center">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Nenhum ranking disponível para esse filtro.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Nenhum ranking dispon&#237;vel para esse filtro.</p>
           </div>
         )}
 
@@ -108,7 +108,7 @@ export default function RankingsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-2 align-middle text-[11px] text-zinc-400 dark:text-zinc-500">
-                      {entry.clubAcronym ?? ''}
+                      {entry.clubAcronym ?? '\u2014'}
                     </td>
                     <td className="px-4 py-2 align-middle text-right text-xs font-semibold text-zinc-900 dark:text-zinc-50">
                       {entry.points.toLocaleString('pt-BR')}
