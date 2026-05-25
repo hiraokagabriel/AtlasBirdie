@@ -9,7 +9,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -311,7 +310,7 @@ model TournamentEvent {
 }
 
 // ---------------------------------------------------------------------------
-// TournamentCourt  (novo — Step 5 do wizard)
+// TournamentCourt
 // ---------------------------------------------------------------------------
 
 model TournamentCourt {
@@ -320,8 +319,8 @@ model TournamentCourt {
   name               String
   type               CourtType  @default(SECONDARY)
   isShowCourt        Boolean    @default(false)
-  openTime           String     // HH:MM
-  closeTime          String     // HH:MM
+  openTime           String
+  closeTime          String
   minIntervalMinutes Int        @default(15)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
