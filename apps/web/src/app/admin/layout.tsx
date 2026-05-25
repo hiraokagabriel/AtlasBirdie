@@ -2,8 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
-import { redirect } from 'next/navigation';
 
 const sidebarLinks = [
   {
@@ -157,53 +155,19 @@ function AdminSidebar() {
   );
 }
 
-function AdminRoleGuard({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, orgRole } = useAuth();
-
-  if (!isLoaded) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <span className="text-sm text-zinc-400">Carregando...</span>
-      </div>
-    );
-  }
-
-  if (!isSignedIn) {
-    redirect('/sign-in');
-  }
-
-  // Roles permitidos: org:admin (federation_admin) e qualquer role de organização
-  // A verificação granular de roles é feita no middleware + backend.
-  // Aqui fazemos apenas a guarda básica de autenticação no frontend.
-  const allowedRoles = ['org:admin', 'org:member'];
-  const hasAccess = orgRole != null && allowedRoles.includes(orgRole);
-
-  if (!hasAccess) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50 mb-1">Acesso restrito</p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Você não tem permissão para acessar o painel admin.</p>
-          <Link href="/" className="mt-4 inline-block text-sm text-emerald-600 hover:underline">Voltar ao portal</Link>
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-}
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  // TODO(Phase-3): Adicionar guard de autenticação quando Auth.js ou Clerk
+  // for configurado como dependência em apps/web/package.json.
+  // Por enquanto o painel admin é acessível sem autenticação no frontend;
+  // a proteção real está no middleware da API (requireAuth).
   return (
-    <AdminRoleGuard>
-      <div className="flex h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950">
-        <AdminSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <main className="flex-1 overflow-y-auto">
-            {children}
-          </main>
-        </div>
+    <div className="flex h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+      <AdminSidebar />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
-    </AdminRoleGuard>
+    </div>
   );
 }
