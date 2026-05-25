@@ -1,5 +1,5 @@
 // Atlas Birdie — Prisma Schema
-// Phase 1: Tenant, User, Club, Athlete, Pair + modelos de suporte completos
+// Phase 2: Tournament wizard fields + TournamentCourt
 
 generator client {
   provider = "prisma-client-js"
@@ -77,6 +77,11 @@ enum UserRole {
   CLUB_MANAGER
   ATHLETE
   PUBLIC
+}
+
+enum CourtType {
+  MAIN
+  SECONDARY
 }
 
 // ---------------------------------------------------------------------------
@@ -230,25 +235,31 @@ model Pair {
 // ---------------------------------------------------------------------------
 
 model Tournament {
-  id            String           @id @default(cuid())
-  tenantId      String
-  name          String
-  slug          String           @unique
-  logoUrl       String?
-  location      String?
-  city          String?
-  state         String?
-  startDate     DateTime
-  endDate       DateTime
-  status        TournamentStatus @default(DRAFT)
-  regulationUrl String?
-  description   String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  deletedAt     DateTime?
+  id                    String           @id @default(cuid())
+  tenantId              String
+  name                  String
+  slug                  String           @unique
+  logoUrl               String?
+  location              String?
+  city                  String?
+  state                 String?
+  startDate             DateTime
+  endDate               DateTime
+  status                TournamentStatus @default(DRAFT)
+  regulationUrl         String?
+  /// Texto completo do regulamento (Markdown)
+  regulationText        String?          @db.Text
+  description           String?
+  registrationOpenAt    DateTime?
+  registrationCloseAt   DateTime?
+  maxInscriptionsGlobal Int?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  deletedAt             DateTime?
 
-  tenant Tenant            @relation(fields: [tenantId], references: [id])
+  tenant Tenant              @relation(fields: [tenantId], references: [id])
   events TournamentEvent[]
+  courts TournamentCourt[]
 
   @@index([tenantId])
   @@index([status])
@@ -261,17 +272,32 @@ model Tournament {
 // ---------------------------------------------------------------------------
 
 model TournamentEvent {
-  id              String           @id @default(cuid())
-  tournamentId    String
-  discipline      Discipline
-  category        String
-  bracketFormat   BracketFormat    @default(SINGLE_ELIMINATION)
-  maxInscriptions Int?
-  status          TournamentStatus @default(DRAFT)
-  seedingClosedAt DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
+  id                 String           @id @default(cuid())
+  tournamentId       String
+  discipline         Discipline
+  category           String
+  bracketFormat      BracketFormat    @default(SINGLE_ELIMINATION)
+  maxInscriptions    Int?
+  /// Número de cabeças-de-chave
+  seedCount          Int              @default(4)
+  /// Melhor de X games
+  bestOf             Int              @default(3)
+  /// Pontos por game (ex: 21)
+  pointsPerGame      Int              @default(21)
+  /// Grupos (para ROUND_ROBIN / GROUPS_WITH_KNOCKOUT)
+  groupCount         Int?
+  playersPerGroup    Int?
+  advancePerGroup    Int?
+  /// Critérios de desempate em JSON
+  tiebreakCriteria   String[]         @default(["WINS", "SET_BALANCE", "POINT_BALANCE"])
+  /// Intervalo mínimo entre partidas do mesmo atleta (minutos)
+  minIntervalMinutes Int              @default(30)
+  isPublic           Boolean          @default(true)
+  status             TournamentStatus @default(DRAFT)
+  seedingClosedAt    DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
 
   tournament   Tournament    @relation(fields: [tournamentId], references: [id])
   inscriptions Inscription[]
@@ -280,6 +306,29 @@ model TournamentEvent {
   @@unique([tournamentId, discipline, category])
   @@index([tournamentId])
   @@map("tournament_events")
+}
+
+// ---------------------------------------------------------------------------
+// TournamentCourt  (novo — Step 5 do wizard)
+// ---------------------------------------------------------------------------
+
+model TournamentCourt {
+  id                 String     @id @default(cuid())
+  tournamentId       String
+  name               String
+  type               CourtType  @default(SECONDARY)
+  isShowCourt        Boolean    @default(false)
+  openTime           String     // HH:MM
+  closeTime          String     // HH:MM
+  minIntervalMinutes Int        @default(15)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+
+  @@index([tournamentId])
+  @@map("tournament_courts")
 }
 
 // ---------------------------------------------------------------------------

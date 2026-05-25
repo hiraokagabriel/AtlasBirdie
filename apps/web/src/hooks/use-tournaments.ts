@@ -1,46 +1,174 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+'use client'
+
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { api } from '@/lib/api'
+import type { CreateTournamentInput, UpdateTournamentInput, CreateEventInput } from '@atlas/validators'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface TournamentListItem {
-  id: string;
-  slug: string;
-  name: string;
-  city: string | null;
-  state: string | null;
-  statusLabel: string;
-  periodLabel: string;
-  eventsCount: number;
+  id: string
+  slug: string
+  name: string
+  city: string | null
+  state: string | null
+  statusLabel: string
+  periodLabel: string
+  eventsCount: number
+  status: string
+  logoUrl: string | null
 }
 
-interface UseTournamentsParams {
-  search?: string;
-  page?: number;
-  perPage?: number;
+export interface TournamentDetail extends Omit<TournamentListItem, 'eventsCount' | 'periodLabel'> {
+  location: string | null
+  startDate: string
+  endDate: string
+  description: string | null
+  regulationUrl: string | null
+  regulationText: string | null
+  registrationOpenAt: string | null
+  registrationCloseAt: string | null
+  maxInscriptionsGlobal: number | null
+  events: TournamentEventItem[]
+}
+
+export interface TournamentEventItem {
+  id: string
+  tournamentId: string
+  discipline: string
+  category: string
+  bracketFormat: string
+  maxInscriptions: number | null
+  seedCount: number
+  bestOf: number
+  pointsPerGame: number
+  groupCount: number | null
+  playersPerGroup: number | null
+  advancePerGroup: number | null
+  tiebreakCriteria: string[]
+  minIntervalMinutes: number
+  isPublic: boolean
+  status: string
 }
 
 interface TournamentsResponse {
-  data: TournamentListItem[];
-  meta: {
-    total: number;
-    page: number;
-    perPage: number;
-    totalPages: number;
-  };
+  data: TournamentListItem[]
+  meta: { total: number; page: number; perPage: number; totalPages: number }
 }
 
-export function useTournaments({ search = '', page = 1, perPage = 12 }: UseTournamentsParams) {
-  return useQuery<TournamentsResponse>({
-    queryKey: ['tournaments', { search, page, perPage }],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('perPage', String(perPage));
-      if (search.trim()) params.set('search', search.trim());
+interface SingleResponse<T> {
+  data: T
+}
 
-      const res = await api.get<TournamentsResponse>(`/api/tournaments?${params.toString()}`);
-      return res.data;
+// ---------------------------------------------------------------------------
+// Query keys
+// ---------------------------------------------------------------------------
+
+export const tournamentKeys = {
+  all: ['tournaments'] as const,
+  list: (f: Record<string, unknown>) => ['tournaments', 'list', f] as const,
+  detail: (slug: string) => ['tournaments', 'detail', slug] as const,
+}
+
+// ---------------------------------------------------------------------------
+// Payload types — token always lives inside the mutation payload so Clerk
+// tokens that rotate between renders are never stale-captured in a closure.
+// ---------------------------------------------------------------------------
+
+type WithToken<T> = T & { token: string }
+
+// ---------------------------------------------------------------------------
+// Query hooks
+// ---------------------------------------------------------------------------
+
+interface UseTournamentsParams {
+  search?: string
+  page?: number
+  perPage?: number
+  status?: string
+}
+
+export function useTournaments({
+  search = '',
+  page = 1,
+  perPage = 20,
+  status,
+}: UseTournamentsParams = {}) {
+  return useQuery<TournamentsResponse>({
+    queryKey: tournamentKeys.list({ search, page, perPage, status }),
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      params.set('perPage', String(perPage))
+      if (search.trim()) params.set('search', search.trim())
+      if (status) params.set('status', status)
+      return api.get<TournamentsResponse>(`/api/tournaments?${params.toString()}`)
     },
     staleTime: 1000 * 30,
     placeholderData: keepPreviousData,
-  });
+  })
+}
+
+export function useTournament(slug: string) {
+  return useQuery<SingleResponse<TournamentDetail>>({
+    queryKey: tournamentKeys.detail(slug),
+    queryFn: () => api.get<SingleResponse<TournamentDetail>>(`/api/tournaments/${slug}`),
+    enabled: Boolean(slug),
+    staleTime: 1000 * 60,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Mutation hooks
+// ---------------------------------------------------------------------------
+
+export function useCreateTournament() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ token, ...input }: WithToken<CreateTournamentInput>) =>
+      api.post<SingleResponse<TournamentDetail>>('/api/tournaments', input, { token }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
+  })
+}
+
+export function useUpdateTournament(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ token, ...input }: WithToken<UpdateTournamentInput>) =>
+      api.patch<SingleResponse<TournamentDetail>>(`/api/tournaments/${id}`, input, { token }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
+  })
+}
+
+export function useDeleteTournament() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ token, id }: { token: string; id: string }) =>
+      api.delete<void>(`/api/tournaments/${id}`, { token }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
+  })
+}
+
+export function useCreateEvent(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ token, ...input }: WithToken<CreateEventInput>) =>
+      api.post<SingleResponse<TournamentEventItem>>(
+        `/api/tournaments/${tournamentId}/events`,
+        input,
+        { token },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
+  })
+}
+
+export function useDeleteEvent(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ token, eventId }: { token: string; eventId: string }) =>
+      api.delete<void>(`/api/tournaments/${tournamentId}/events/${eventId}`, { token }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.all }),
+  })
 }

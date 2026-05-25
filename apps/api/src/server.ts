@@ -4,6 +4,7 @@ import prismaPlugin from './plugins/prisma'
 import redisPlugin from './plugins/redis'
 import athleteRoutes from './routes/athletes/index'
 import clubRoutes from './routes/clubs/index'
+import tournamentRoutes from './routes/tournaments/index'
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -38,6 +39,7 @@ export async function buildServer() {
   // Routes
   await fastify.register(athleteRoutes, { prefix: '/api/athletes' })
   await fastify.register(clubRoutes, { prefix: '/api/clubs' })
+  await fastify.register(tournamentRoutes, { prefix: '/api/tournaments' })
 
   return fastify
 }
