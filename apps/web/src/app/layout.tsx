@@ -1,37 +1,24 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
-import { ClerkProvider } from '@clerk/nextjs';
-import { QueryProvider } from '../providers/query-provider';
-import './globals.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+import type { Metadata } from 'next'
+import './globals.css'
+import { QueryProvider } from '@/providers/query-provider'
 
 export const metadata: Metadata = {
   title: 'Atlas Birdie',
-  description: 'Plataforma de gestão de campeonatos de badminton',
-};
+  description: 'Plataforma de campeonatos de badminton',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <ClerkProvider>
-      <html
-        lang="pt-BR"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">
-          <QueryProvider>{children}</QueryProvider>
-        </body>
-      </html>
-    </ClerkProvider>
-  );
+    <html lang="pt-BR">
+      <body>
+        <QueryProvider>
+          {children}
+        </QueryProvider>
+      </body>
+    </html>
+  )
 }
