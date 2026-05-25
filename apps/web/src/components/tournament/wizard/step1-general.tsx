@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { createTournamentSchema, type CreateTournamentInput } from '@atlas/validators'
 import { useWizard } from './wizard-context'
 import { useCreateTournament } from '@/hooks/use-tournaments'
-import { useAuth } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -21,7 +20,6 @@ import { slugify } from '@/lib/utils'
 
 export function Step1General() {
   const { state, dispatch } = useWizard()
-  const { getToken } = useAuth()
   const createMutation = useCreateTournament()
 
   const form = useForm<CreateTournamentInput>({
@@ -43,12 +41,8 @@ export function Step1General() {
     dispatch({ type: 'SET_SAVING', value: true })
 
     try {
-      const token = await getToken()
-      if (!token) throw new Error('Não autenticado')
-
       if (!state.createdTournamentId) {
-        // token é obtido fresco aqui — nunca stale
-        const result = await createMutation.mutateAsync({ ...data, token })
+        const result = await createMutation.mutateAsync(data)
         dispatch({
           type: 'SET_CREATED',
           id: result.data.id,

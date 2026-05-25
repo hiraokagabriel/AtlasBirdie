@@ -2,8 +2,9 @@
 // Phase 2: Tournament wizard fields + TournamentCourt
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -309,7 +310,7 @@ model TournamentEvent {
 }
 
 // ---------------------------------------------------------------------------
-// TournamentCourt  (novo — Step 5 do wizard)
+// TournamentCourt
 // ---------------------------------------------------------------------------
 
 model TournamentCourt {
@@ -318,8 +319,8 @@ model TournamentCourt {
   name               String
   type               CourtType  @default(SECONDARY)
   isShowCourt        Boolean    @default(false)
-  openTime           String     // HH:MM
-  closeTime          String     // HH:MM
+  openTime           String
+  closeTime          String
   minIntervalMinutes Int        @default(15)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
