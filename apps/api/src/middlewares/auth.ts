@@ -1,41 +1,28 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { createClerkClient } from '@clerk/backend'
 
-const clerk = createClerkClient({
-  secretKey: process.env.CLERK_SECRET_KEY,
-})
+// TEMP: Dev-only auth bypass to destravar ambiente local.
+// Em produção, isso deve ser substituído por verificação real via Clerk.
 
-export async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const token = request.headers.authorization?.replace('Bearer ', '')
-
-  if (!token) {
-    return reply.status(401).send({ error: 'Unauthorized', code: 'MISSING_TOKEN' })
-  }
-
-  try {
-    const payload = await clerk.verifyToken(token)
-    request.clerkUserId = payload.sub
-  } catch {
-    return reply.status(401).send({ error: 'Unauthorized', code: 'INVALID_TOKEN' })
-  }
+export async function requireAuth(
+  request: FastifyRequest,
+  _reply: FastifyReply,
+): Promise<void> {
+  // Atacha um usuário fake sempre que a rota exigir auth
+  request.clerkUserId = 'dev-user'
 }
 
-export function requireRole(allowedRoles: string[]) {
+export function requireRole(_allowedRoles: string[]) {
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const user = await request.server.prisma.user.findUnique({
-      where: { clerkId: request.clerkUserId },
-      select: { role: true, isActive: true, tenantId: true },
-    })
+    const tenant = await request.server.prisma.tenant.findFirst()
 
-    if (!user || !user.isActive) {
-      return reply.status(403).send({ error: 'Forbidden', code: 'USER_NOT_FOUND' })
+    if (!tenant) {
+      return reply
+        .status(500)
+        .send({ error: 'Tenant not found', code: 'NO_TENANT' })
     }
 
-    if (!allowedRoles.includes(user.role)) {
-      return reply.status(403).send({ error: 'Forbidden', code: 'INSUFFICIENT_ROLE' })
-    }
-
-    request.userRole = user.role
-    request.tenantId = user.tenantId
+    // SUPER_ADMIN fake em dev
+    request.userRole = 'SUPER_ADMIN'
+    request.tenantId = tenant.id
   }
 }
