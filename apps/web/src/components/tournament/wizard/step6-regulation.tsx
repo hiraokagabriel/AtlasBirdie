@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useWizard } from './wizard-context'
 import { useUpdateTournament } from '@/hooks/use-tournaments'
-import { useAuth } from '@clerk/nextjs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,7 +12,6 @@ import { useRouter } from 'next/navigation'
 export function Step6Regulation() {
   const { state, dispatch } = useWizard()
   const router = useRouter()
-  const { getToken } = useAuth()
 
   const [regulationUrl, setRegulationUrl] = useState(
     state.draft.step6?.regulationUrl ?? '',
@@ -22,7 +20,8 @@ export function Step6Regulation() {
     state.draft.step6?.regulationText ?? '',
   )
 
-  const updateMutation = useUpdateTournament(state.createdTournamentId ?? '', '')
+  // ✅ Hook chamado no corpo do componente — não dentro de onFinish
+  const updateMutation = useUpdateTournament(state.createdTournamentId ?? '')
 
   const onFinish = async () => {
     if (!state.createdTournamentId) return
@@ -31,16 +30,12 @@ export function Step6Regulation() {
     dispatch({ type: 'SET_ERROR', error: null })
 
     try {
-      const token = await getToken()
-      if (!token) throw new Error('Não autenticado')
-
-      await useUpdateTournament(state.createdTournamentId, token).mutateAsync({
+      await updateMutation.mutateAsync({
         regulationUrl: regulationUrl || undefined,
         regulationText: regulationText || undefined,
       })
 
       dispatch({ type: 'SAVE_DRAFT', step: 'step6', data: { regulationUrl, regulationText } })
-
       router.push(`/admin/tournaments/${state.createdTournamentSlug}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido'
