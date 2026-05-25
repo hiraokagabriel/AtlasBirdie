@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
 import { useTournaments, useDeleteTournament, type TournamentListItem } from '@/hooks/use-tournaments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,9 +44,6 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function AdminTournamentsPage() {
-  const router = useRouter()
-  const { getToken } = useAuth()
-
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [deleteTarget, setDeleteTarget] = useState<TournamentListItem | null>(null)
@@ -65,9 +60,7 @@ export default function AdminTournamentsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    const token = await getToken()
-    if (!token) return
-    await deleteMutation.mutateAsync({ id: deleteTarget.id, token })
+    await deleteMutation.mutateAsync({ id: deleteTarget.id })
     setDeleteTarget(null)
   }
 
