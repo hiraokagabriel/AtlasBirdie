@@ -23,14 +23,16 @@ export async function registerAthlete(_prevState: unknown, formData: FormData) {
     return { error: 'Preencha todos os campos obrigatórios.' };
   }
 
-  const res = await fetch(`${process.env['API_URL']}/api/athletes/register`, {
+  const baseUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
+
+  const res = await fetch(`${baseUrl}/api/athletes/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tenantId, name, email, birthDate: new Date(birthDate).toISOString(), gender, clubId: clubId || undefined, city, state }),
   });
 
   if (!res.ok) {
-    const json = await res.json() as { error?: string };
+    const json = (await res.json()) as { error?: string };
     return { error: json.error ?? 'Erro ao realizar cadastro. Tente novamente.' };
   }
 
