@@ -4,7 +4,6 @@ import { AthleteService } from '../../services/athlete.service.js';
 import { registrationConfirmationQueue } from '../../jobs/queues.js';
 
 const registerBodySchema = z.object({
-  tenantId: z.string().min(1),
   name: z.string().min(2).max(120),
   email: z.string().email(),
   birthDate: z.string().datetime(),
@@ -43,14 +42,22 @@ export default async function athleteRegisterRoute(app: FastifyInstance) {
       });
     }
 
-    const { name, email, tenantId, birthDate, gender, clubId, city, state, country } = body.data;
+    const tenant = await app.prisma.tenant.findFirst();
+    if (!tenant) {
+      return reply.code(404).send({
+        error: 'Tenant not found',
+        code: 'NO_TENANT',
+      });
+    }
+
+    const { name, email, birthDate, gender, clubId, city, state, country } = body.data;
 
     // Gera slug único com sufixo numérico se conflito
     let slug = generateSlug(name);
     const existing = await app.prisma.athlete.findFirst({ where: { slug, deletedAt: null } });
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;
 
-    const athlete = await service.create(tenantId, {
+    const athlete = await service.create(tenant.id, {
       name,
       slug,
       birthDate,
