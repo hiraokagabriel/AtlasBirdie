@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { createAthleteService } from '../../services/athlete.service.js';
+import { AthleteService } from '../../services/athlete.service.js';
 import { registrationConfirmationQueue } from '../../jobs/queues.js';
 
 const registerBodySchema = z.object({
@@ -26,7 +26,7 @@ function generateSlug(name: string): string {
 }
 
 export default async function athleteRegisterRoute(app: FastifyInstance) {
-  const service = createAthleteService(app.prisma);
+  const service = new AthleteService(app.prisma);
 
   /**
    * POST /api/athletes/register
@@ -50,17 +50,15 @@ export default async function athleteRegisterRoute(app: FastifyInstance) {
     const existing = await app.prisma.athlete.findFirst({ where: { slug, deletedAt: null } });
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;
 
-    const athlete = await service.create({
-      tenantId,
+    const athlete = await service.create(tenantId, {
       name,
       slug,
-      birthDate: new Date(birthDate),
+      birthDate,
       gender,
       clubId,
       city,
       state,
       country,
-      // status permanece PENDING (default do schema)
     });
 
     // Dispara e-mail de confirmação em background via BullMQ
