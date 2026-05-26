@@ -25,15 +25,37 @@ export async function registerAthlete(_prevState: unknown, formData: FormData) {
 
   const baseUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
 
-  const res = await fetch(`${baseUrl}/api/athletes/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tenantId, name, email, birthDate: new Date(birthDate).toISOString(), gender, clubId: clubId || undefined, city, state }),
-  });
+  try {
+    const res = await fetch(`${baseUrl}/api/athletes/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId,
+        name,
+        email,
+        birthDate: new Date(birthDate).toISOString(),
+        gender,
+        clubId: clubId || undefined,
+        city,
+        state,
+      }),
+    });
 
-  if (!res.ok) {
-    const json = (await res.json()) as { error?: string };
-    return { error: json.error ?? 'Erro ao realizar cadastro. Tente novamente.' };
+    if (!res.ok) {
+      let message = 'Erro ao realizar cadastro. Tente novamente.';
+
+      try {
+        const json = (await res.json()) as { error?: string };
+        if (json.error) message = json.error;
+      } catch {
+        // ignore JSON parse errors and keep default message
+      }
+
+      return { error: message };
+    }
+  } catch (error) {
+    console.error('Erro ao chamar /api/athletes/register', error);
+    return { error: 'Não foi possível conectar ao servidor. Verifique se a API está rodando.' };
   }
 
   redirect('/register/success');
