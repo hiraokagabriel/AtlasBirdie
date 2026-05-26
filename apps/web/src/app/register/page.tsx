@@ -1,5 +1,3 @@
-'use server';
-
 import { redirect } from 'next/navigation';
 import { Navbar } from '@/components/shared/navbar';
 import { RegisterForm } from './register-form';
