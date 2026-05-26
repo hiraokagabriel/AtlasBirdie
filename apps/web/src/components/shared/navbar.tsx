@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useAuth, UserButton, OrganizationSwitcher } from '@clerk/nextjs';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
+import { LogOut, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
 const navLinks = [
   { href: '/tournaments', label: 'Torneios' },
@@ -13,7 +15,15 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const { isSignedIn } = useAuth();
+  const router = useRouter();
+  const { isSignedIn, user, signOut } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  function handleSignOut() {
+    signOut();
+    setDropdownOpen(false);
+    router.push('/');
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-zinc-100 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
@@ -47,30 +57,63 @@ export function Navbar() {
 
         {/* Auth area */}
         <div className="flex items-center gap-3">
-          {isSignedIn ? (
-            <>
-              {/*
-               * OrganizationSwitcher permite ao usuário selecionar a organização
-               * ativa na sessão. Isso é necessário para que o Clerk popule orgRole
-               * no token — sem uma org ativa, orgRole retorna null e o AdminRoleGuard
-               * bloqueia o acesso ao painel admin.
-               *
-               * TODO Phase 2: mover para um componente dedicado no AdminSidebar
-               * e remover da Navbar pública quando o fluxo de org for consolidado.
-               */}
-              <OrganizationSwitcher
-                hidePersonal
-                afterSelectOrganizationUrl="/admin"
-                appearance={{
-                  elements: {
-                    rootBox: 'flex items-center',
-                    organizationSwitcherTrigger:
-                      'text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors px-2 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800',
-                  },
-                }}
-              />
-              <UserButton />
-            </>
+          {isSignedIn && user ? (
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen((v) => !v)}
+                className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 transition-colors px-2 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                aria-label="Menu do usuário"
+                aria-expanded={dropdownOpen}
+              >
+                {/* Avatar */}
+                <span className="w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-semibold flex items-center justify-center select-none">
+                  {user.avatarInitials}
+                </span>
+                <span className="hidden sm:inline">{user.name}</span>
+                <ChevronDown size={14} className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Dropdown */}
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 z-50">
+                  <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+                    <p className="text-xs font-medium text-zinc-900 dark:text-zinc-50 truncate">{user.name}</p>
+                    <p className="text-xs text-zinc-400 truncate">{user.email}</p>
+                    <span className="inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
+                      {user.role}
+                    </span>
+                  </div>
+
+                  {(user.role === 'super_admin' || user.role === 'federation_admin') && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      Painel Admin
+                    </Link>
+                  )}
+
+                  {user.role === 'athlete' && (
+                    <Link
+                      href="/athlete"
+                      onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      Meu Perfil
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  >
+                    <LogOut size={14} />
+                    Sair
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <Link
@@ -79,11 +122,6 @@ export function Navbar() {
               >
                 Entrar
               </Link>
-              {/*
-               * Aponta para /register (cadastro público de atleta — PR #68).
-               * /sign-up (Clerk) é reservado para usuários administrativos
-               * que recebem convite pelo painel admin (Phase 2).
-               */}
               <Link
                 href="/register"
                 className="text-sm font-medium px-4 py-2 rounded-full bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
