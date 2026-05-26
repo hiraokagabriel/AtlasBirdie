@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { use } from 'react'
 import Link from 'next/link'
@@ -75,7 +75,6 @@ export default function AdminTournamentDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <Button variant="ghost" size="icon" asChild className="mt-0.5 shrink-0">
@@ -108,7 +107,6 @@ export default function AdminTournamentDetailPage({
         </div>
       </div>
 
-      {/* Info cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mb-1">
@@ -139,7 +137,6 @@ export default function AdminTournamentDetailPage({
         </div>
       </div>
 
-      {/* Description */}
       {t.description && (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
           <h2 className="text-sm font-semibold mb-2">Descrição</h2>
@@ -147,7 +144,6 @@ export default function AdminTournamentDetailPage({
         </div>
       )}
 
-      {/* Events */}
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
           <h2 className="text-sm font-semibold">Modalidades ({t.events.length})</h2>
@@ -190,29 +186,6 @@ export default function AdminTournamentDetailPage({
           </table>
         )}
       </div>
-
-      {/* Regulation */}
-      {(t.regulationUrl || t.regulationText) && (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-          <h2 className="text-sm font-semibold mb-2">Regulamento</h2>
-          {t.regulationUrl && (
-            <a
-              href={t.regulationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-[var(--color-primary)] hover:underline"
-            >
-              <ExternalLink size={13} />
-              Abrir regulamento externo
-            </a>
-          )}
-          {t.regulationText && (
-            <p className="text-sm text-[var(--color-text-muted)] whitespace-pre-line mt-2">
-              {t.regulationText}
-            </p>
-          )}
-        </div>
-      )}
     </div>
   )
 }
